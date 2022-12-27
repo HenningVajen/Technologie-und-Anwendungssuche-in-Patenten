@@ -83,7 +83,6 @@ synset = st.sidebar.file_uploader("Gespeichertes Synset verwenden", type=[".txt"
 st.markdown("""---""")
 st.header("Status")
 "Verbindung zum Backend: OK"
-"Verbindung zum Suchserver: OK"
 
 st.markdown("""---""")
 st.header("Query")
@@ -118,6 +117,9 @@ st.number_input("Anzahl an Top Patenten für die Ausgabe", min_value=1, value=10
 if st.checkbox('Zeige erweiterte Query'):
     st.write(termeAuswahl)
 
+overlap = st.checkbox('Overlap-Suche')
+if overlap:
+    pass
 st.button("Suche im Index", on_click=sucheStarten, type="primary")
 
 
