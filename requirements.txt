@@ -1,6 +1,8 @@
 #Beeinhaltet die verwendeten Pakete
 #Zur Installation: #python3 -m pip install -r requirements.txt
 
+spacy == 3.4.3
+elasticsearch == 8.5.0
 gensim == 4.2.0
 streamlit ==1.16.0
 streamlit-aggrid==0.3.3
