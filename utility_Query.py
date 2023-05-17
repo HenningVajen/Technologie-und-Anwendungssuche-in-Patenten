@@ -101,7 +101,7 @@ if __name__ == "__main__":
     #index_ = esIndexText
     #antwort = alleDokumente()
     #antwort = sucheEinFeld("manufacturing liquid", "title")
-    #antwort = sucheStringQuery("(virtual machine) OR (manufacturing liquid)", ["title"])
+    antwort = sucheStringQuery("(virtual machine) OR (manufacturing liquid)", ["title"])
     #antwort = sucheSatzweise("detection")
 
     #POS Suche

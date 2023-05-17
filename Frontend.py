@@ -1,174 +1,455 @@
 import time
 import streamlit as st
-from st_aggrid import AgGrid
-from st_aggrid.grid_options_builder import GridOptionsBuilder
+#from st_aggrid import AgGrid
+#from st_aggrid.grid_options_builder import GridOptionsBuilder
 from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode, JsCode
 from st_aggrid.shared import GridUpdateMode
 import pandas as pd
-import numpy as np
+#import numpy as np
+from io import StringIO
 import Backend
+import random
 
+#-----------------------    Attribute  -----------------------
+df3 = pd.DataFrame()
 
-def Convert(lst):
-    res_dct = {lst[i]: lst[i + 1] for i in range(0, len(lst), 2)}
-    return res_dct
+fasttextModel = None
 
-#-----------------------    TEST DATEN   -----------------------
-# Query Expansion #
-trailer = [('truck-trailer', 0.9386199712753296), ('semi-trailer', 0.9360169768333435), ("trailer's", 0.9236122965812683), ('truck-trailer-trailer', 0.9201167225837708), ('trailer/semi-trailer', 0.9138890504837036), ('trailer.trailer', 0.9103350043296814), ('truck', 0.9096668362617493), ('trailered', 0.9086657762527466), ('trailer-truck', 0.9079216122627258), ('trailer/semitrailer', 0.9059764742851257)]
-tractor = [("tractor's", 0.8930355906486511), ('truck-tractor', 0.8929652571678162), ('mower', 0.8926917910575867), ('tractors', 0.8885779976844788), ('backhoe', 0.8791295289993286), ('tractor-mower', 0.8788689374923706), ('towing', 0.8769713044166565), ('skidder', 0.8757275938987732), ('semi-trailer', 0.8754765391349792), ('tractor-trailer', 0.8725751638412476)]
-car = [('cars', 0.8518626093864441), ('passenger', 0.846340537071228), ('car.a', 0.8446317315101624), ('car-passenger', 0.8354069590568542), ('passenger-carried', 0.8326546549797058), ('passenger-car', 0.8320203423500061), ('passenger-carrying', 0.8313053846359253), ('car-trucks', 0.8252957463264465), ('passenger-cars', 0.8243130445480347), ('automobile', 0.8207235336303711)]
-brake = [('brakes', 0.9286898970603943), ('brake-clutch', 0.9210224151611328), ('braking', 0.9137291312217712), ('brake-off', 0.8989164233207703), ('brake-apply', 0.8987146019935608), ('brake-on', 0.8957924842834473), ('brake-clutches', 0.8955795168876648), ('brake-actuating', 0.8929045796394348), ('shoe-brake', 0.8884227871894836), ('brake-actuation', 0.8883419632911682)]
-trailer_str = []
-tractor_str = []
-car_str = []
-brake_str =[]
-for i in range(10):
-    trailer_str.append(trailer[i][0])
-    tractor_str.append(tractor[i][0])
-    car_str.append(car[i][0])
-    brake_str.append(brake[i][0])
+if 'initialized' not in st.session_state:
+    st.session_state.initialized = False
 
-df = pd.DataFrame(
-    {
-        "brake":brake_str,
-        "tractor":tractor_str,
-        "trailer": trailer_str,
-        "car": car_str
-    }
-)
+if 'expandQueryStart' not in st.session_state:
+    st.session_state.expandQueryStart = False
 
-# Patentsuche #
-anzahl = 10
-patenteDummy = []
-scoreDummy = []
-titleDummy = "Dummy Patent Titel"
-CPCDummy = "A61"
-for i in range(anzahl):
-    scoreDummy.append(np.random.randint(1,100))
+if 'selectedTerms' not in st.session_state:
+    st.session_state.selectedTerms = []
 
-print(patenteDummy)
-dfAusgabeDummy = pd.DataFrame(
-    {
-        "Title":titleDummy,
-        "CPC":CPCDummy,
-        "Score":scoreDummy,
-    }
-)
-dfAusgabeDummy = dfAusgabeDummy.sort_values("Score", ascending=False)
+if 'fastTextModel_loaded' not in st.session_state:
+    st.session_state.fastTextModel_loaded = False
 
-cpcDummy = pd.DataFrame(
-    {
-        "Index": [1],
-        "cpc": "A61",
-        "Desciption": "MEDICAL OR VETERINARY SCIENCE; HYGIENE",
-})
-print(cpcDummy)
+if 'use_fileUpload' not in st.session_state:
+    st.session_state.use_fileUpload = False
+
+if 'visualisation_start' not in st.session_state:
+    st.session_state.visualisation_start = False
+
+st.session_state.visualisation_start  = False
+
 
 #-----------------------    DEFINITION DER FUNKTIONEN   -----------------------
+def insert_parentheses(string_original, string_expanded):
+    # Initialisierung von string3 mit öffnenden Klammern
+    string3 = "("
+    # Splitting von string_expanded in eine Liste von Wörtern
+    words = string_expanded.split()
+    # Überprüfung jedes Worts auf das Vorhandensein in string_original
+    i = 0
+    for word in words:
+        if i != 0:
+            if word in string_original:
+                # Einfügen von ") (" zu string3, falls das Wort in string_original vorhanden ist
+                string3 += ") (" + word
+            else:
+                string3 += " " + word
+        else:
+            string3 += " " + word
+        i += 1
+    # Abschluss des Stings3 mit Klammer
+    string3 += ")"
+    return string3
+
 def sucheStarten():
     with st.spinner('Suche im Index wird durchgeführt'):
         time.sleep(3)
     st.success('Suche abgeschlossen')
 
+
 def queryExpansion():
-    pass
+    #st.session_state.QEDataframe = Backend.expandQuery(keywords, qeTermNumber, wordnet, jobim, fastext, fasttextModel) #creates a new sesson state variable each time the function is called. This prevents the
+    # todo: FUNKTIONSERWEITERUNG - POS-Tags könnten hier nicht herausgefiltert, sondern in den späteren Abfragen zur Verbesserung der Resultate verwendet werden.
+    st.session_state.initialized = True
+    st.session_state.expandQueryStart = True
 
+def startVisualisation():
+    st.session_state.visualisation_start = True
 
-#-----------------------    LAYOUT DER WEBAPPLICATION   -----------------------
-st.title("Multiterm-Overlap-Suche nach Technologien und Applikationen in Patenten")
+def set_sessionStateQueryExpansion_to_False():
+    st.session_state.expandQueryStart=False
+    #When Query Expansion is used, there cannot be an uploaded file at the same time
+    st.session_state.use_fileUpload=False
 
+#Load the model into cache to speed up the searches following the first loading
+@st.cache_data
+def load_fasttext(text):
+    _model = Backend.startFastext()
+    return _model
 
-synset = st.sidebar.file_uploader("Gespeichertes Synset verwenden", type=[".txt"])
-
-st.markdown("""---""")
-st.header("Status")
-st.button("Server starten", on_click=Backend.serverStarten(), type="primary")
-st.button("Refresh Status", on_click=Backend.serverstatus_abfragen(), type="secondary")
-"Verbindung zum Backend: OK"
-
-st.markdown("""---""")
-st.header("Query")
-st.text_input("Die Suchanfrage, kann optional POS-Tags und boolsche Opteratoren ergänzt werden ", key="query", placeholder="brake|NOUN AND (tractor OR trailer) NOT car")
-st.text_input("Optional / Alternativ: Suche nach dieser Termen IN EINEM SATZ ", key="queryInSatz", placeholder='"brake rear"~5 NOT drum')
-"Beide Sucheanfragen werden nacheinander ausgeführt und über den Score zusammengeführt"
-st.number_input("Anzahl an Expansion Termen", min_value=1, value=10, key="anzahlExpansionTerme")
-st.button("Erweitere Query", on_click=sucheStarten, type="primary")
-
-st.markdown("""---""")
-st.header("Query Expansion")
-
-termeAuswahl = []
-#für jede Spalte des Dataframes der Suche = für jeden Suchterm wird eine AgGrid-Tabelle konfiguriert und dargestellt
-for spalte in df.columns:
-    gb = GridOptionsBuilder.from_dataframe(pd.DataFrame(df[spalte]))
+def selectionTable(dataToDisplay):
+    #Creation of the selectable table; returns selectes values
+    termeAuswahl = []
+    gb = GridOptionsBuilder.from_dataframe(pd.DataFrame(dataToDisplay))
+    #gb = GridOptionsBuilder.from_dataframe(pd.DataFrame(st.session_state.QEDataframe[queryTerm]))
     gb.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc='sum', editable=False)
     gb.configure_selection(selection_mode="multiple", use_checkbox=True)  # Die Reihen auswählbar machen
     # gb.configure_pagination() #Buttons zum Seitenblättern unter der Tabelle
     gridOptions = gb.build()
-    data = AgGrid(pd.DataFrame(df[spalte]), #data ist der Rückgabewert der Auswahl der Tabelle
+    data = AgGrid(pd.DataFrame(dataToDisplay), #data ist der Rückgabewert der Auswahl der Tabelle
                   gridOptions=gridOptions,
                   #enable_enterprise_modules=True,
                   allow_unsafe_jscode=True,
                   update_mode=GridUpdateMode.SELECTION_CHANGED)
     #Die ausgewählten Terme werden an die Auswahlliste angehangen
     for auswahl in data["selected_rows"]:
-        termeAuswahl.append(auswahl[spalte])
-        #st.write(auswahl[spalte])
+        #termeAuswahl.append(auswahl[queryTerm])
+        termeAuswahl.append(auswahl)
+    return termeAuswahl
 
-st.number_input("Anzahl an Top Patenten für die Ausgabe", min_value=1, value=10, key="anzahlTopPatenten")
-if st.checkbox('Zeige erweiterte Query'):
-    st.write(termeAuswahl)
+#-----------------------    LAYOUT DER WEBAPPLICATION   -----------------------
+st.title("Multiterm-Overlap-Search for Technologies and Use Cases in Patents")
 
-overlap = st.checkbox('Overlap-Suche')
-if overlap:
-    pass
-st.button("Suche im Index", on_click=sucheStarten, type="primary")
 
+#-----------------------    SIDEBAR   -----------------------
+with st.sidebar:
+    uploadFile = None
+    uploadFile = st.file_uploader("Load a synset", type=[".txt"])
+    if uploadFile != None:
+        stringio = StringIO(uploadFile.getvalue().decode("utf-8"))
+        string_data = stringio.read()
+        st.write(string_data)
+        st.session_state.initialized = True
+        st.session_state.expandQueryStart = True
+        st.session_state.use_fileUpload = True
+        # st.write(uploadFile.getvalue())
+        expandedQueryString = string_data
+        queryString = string_data
+
+    st.markdown("""---""")
+    st.header("Status")
+    # Pre-Load the HPI-FastText Model; needed to speed up search, as the loading can take several minutes
+    if fasttextModel != None:
+        st.markdown("FastText Model :green[loaded]")
+    else:
+        st.write("FastText Model :red[not loaded]")
+    if st.button("Load Fastext"):
+        fasttextModel = load_fasttext("asdf")
+
+
+
+
+#-----------------------    KEYWORD INPUT   -----------------------
 
 st.markdown("""---""")
-st.header("Ausgabe")
-st.download_button("Synset speichern", data="tbd")
+st.header("1) Keywords")
+keywords = st.text_input("Enter Keywords describing the an application or a technology ", key="keywords", placeholder="+brake +(tractor trailer) -car")
 
-#Ausgabe der Resultate
-gb1 = GridOptionsBuilder.from_dataframe(pd.DataFrame(dfAusgabeDummy))
-gb1.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc='sum', editable=False)
-gb1.configure_pagination(enabled=True, paginationPageSize=10) #Buttons zum Seitenblättern unter der Tabelle
-gridOptions1 = gb1.build()
-AgGrid(pd.DataFrame(dfAusgabeDummy),
-              gridOptions=gridOptions1,
-              enable_enterprise_modules=True,
-              allow_unsafe_jscode=True,
-              update_mode=GridUpdateMode.SELECTION_CHANGED)
-
-
-st.table(cpcDummy)
-
-st.subheader("ANSÄTZE FÜR ZUSÄTZLICHE AUSGABEN")
-"- Score als Häufigkeitsverteilung + User-Eingabe zur Einstellung eines Cut-Off-Scores, bis zu dem die Ergebnisse ausgegeben werden. Deutlich größerer Datenverkeht zw. Frontend und Backend. Fraglich bis zu welchem Score die Resultate zurückgegeben werden. Es können sicher nicht jedes mal 150.000 Patente dargestellt werden. Ggf. muss eine Reduzierung auf z.B. jedes 10. Patent in der Score-Sortierten Liste durchgeführt werden."
-"- Statistische Auswertugn der Suchergebnisse, insbesondere der CPC-Klassen (Histogramm der Häufigkeit des Auftretens ab Cut-Off-Score). Wäre eine Zusatzfunktion im Backend "
-
-st.subheader("Ausgabe als Overlap-Suche")
-st.markdown("3 Terme enthalten")
-AgGrid(pd.DataFrame(dfAusgabeDummy),
-              gridOptions=gridOptions1,
-              #enable_enterprise_modules=True,
-              allow_unsafe_jscode=True,
-              update_mode=GridUpdateMode.SELECTION_CHANGED,
-              key=1  )
+with st.expander("Show possible search operators"):
+    "All terms are optional (logical OR). "
+    "Additional operators can be given:"
+    st.table([("+", "term must be present (default if no operator is given)"),
+              ("-", "term must not be present"),
+              ("#NOUN", "term must be a noun, e.g. brake#NOUN"),
+              ("#VERB", "term mus be a verb"),
+              ("#ADJ", "term must be an adjective"),
+              ("#ADV", "term must be an adverb")
+              ])
 
 
-st.markdown("2 Terme enthalten")
-AgGrid(pd.DataFrame(dfAusgabeDummy),
-              gridOptions=gridOptions1,
-              enable_enterprise_modules=True,
-              allow_unsafe_jscode=True,
-              update_mode=GridUpdateMode.SELECTION_CHANGED,
-              key=2  )
+query_dict = Backend.queryString_to_dict(keywords)
+
+#-----------------------    QUERY EXPANSION   -----------------------
+st.markdown("""---""")
+st.header("2) Query Expansion")
+
+st.markdown("Expand your keywords with simlar terms to generate more results (improve the recall)")
+
+col1, col2 = st.columns(2)
+with col1:
+    "Query Expansion Model"
+    wordnet = st.checkbox("WordNet", True)
+    jobim = st.checkbox("JoBim", True)
+    fastext = st.checkbox("FastText", False)
+    qeTermNumber = st.number_input("Number of expansion terms", min_value=1, value=10, key="anzahlExpansionTerme")
+with col2:
+    "Include Sub or Super Concepts"
+    superTerm = st.checkbox("Find Superordinate Concept / Hypernyms (Oberbegriffe)", False)
+    if superTerm:
+        superTermNumber = st.number_input("Number of terms", min_value=1, value=1, key="numberSuperTerms")
+    subTerm = st.checkbox("Find Sub concept / Hyponyms (Unterbegriffe)", False)
+    if subTerm:
+        subTermNumber = st.number_input("Number of terms", min_value=1, value=10, key="numberSubTerms")
+
+st.write("Expanded keywords: " + keywords)
+st.button("Start Query Expansion", on_click=queryExpansion(), type="primary")
+
+# Get and select Query Expansion Data
+if st.session_state.initialized:
+    # Can be used to update without display or not update on every entry, if performace issues arise
+    if st.session_state.expandQueryStart:
+        temp_query_expanded_dict = {}
+        temp_query_usecaseSearch_string = "" # generates the string for the Use Case Search
+        first_word = True
+        for queryTerm in query_dict:
+            if query_dict[queryTerm]["proximity"] == None:
+                _pos_tag = query_dict[queryTerm]["pos_tag"]
+                st.subheader("Expansion of the query term: " + queryTerm)
+
+                # get and display  Query Expansion of each term of the query
+                st.write("Similar Terms for " + queryTerm)
+                data_termExpansion = {"Terms": Backend.expandWord(queryTerm, qeTermNumber,_pos_tag, wordnet, jobim, fastext, fasttextModel)}
+                data_termExpansion_DF = pd.DataFrame(data_termExpansion)
+                termSelection_queryTerm = selectionTable(data_termExpansion_DF)
+                userSelectedTerms = termSelection_queryTerm
+
+
+
+                # get and display Super Concepts of each term of the query
+                if superTerm:
+                    st.write("Super Concept of " + queryTerm)
+                    super = {"Terms": Backend.getOberbegriff_WordNet(queryTerm, superTermNumber, _pos_tag)}
+                    super_DF = pd.DataFrame(super)
+                    termSelection_super = selectionTable(super_DF)
+                    userSelectedTerms = userSelectedTerms + termSelection_super
+
+
+
+                # get and display  Sub Concepts of each term of the query
+                if subTerm:
+                    st.write("Sub Concept of " + queryTerm)
+                    sub = {"Terms": Backend.getUnterbegriff_WordNet(queryTerm, subTermNumber, _pos_tag)}
+                    sub_DF = pd.DataFrame(sub)
+                    termSelection_sub = selectionTable(sub_DF)
+                    userSelectedTerms = userSelectedTerms + termSelection_sub
+
+                # create new entries in the expanded query dict according to the selected terms, starts with original terms and adds after that
+                temp_query_expanded_dict[queryTerm] = {"operator": query_dict[queryTerm]["operator"],
+                                                  "pos_tag": query_dict[queryTerm]["pos_tag"],
+                                                  "proximity": query_dict[queryTerm]["proximity"]}
+                for entry in userSelectedTerms:
+                    temp_query_expanded_dict[entry["Terms"]] = {"operator": query_dict[queryTerm]["operator"],
+                                                           "pos_tag": query_dict[queryTerm]["pos_tag"],
+                                                           "proximity": query_dict[queryTerm]["proximity"]}
+
+                if first_word == True:
+                    temp_query_usecaseSearch_string += "(" + queryTerm
+                    for term in userSelectedTerms:
+                        temp_query_usecaseSearch_string += " OR " + term["Terms"]
+                    first_word = False
+                else:
+                    if query_dict[queryTerm]["operator"] == "+" or None:
+                        temp_query_usecaseSearch_string += ") AND (" + queryTerm
+                    if query_dict[queryTerm]["operator"] == "-":
+                        temp_query_usecaseSearch_string += ") NOT (" + queryTerm
+                    for term in userSelectedTerms:
+                        temp_query_usecaseSearch_string += " OR " + term["Terms"]
+        temp_query_usecaseSearch_string += ")"
+# -----------------------    QUERY REFINEMENT   -----------------------
+    st.markdown("""---""")
+    st.header("3) Query Refinement")
+
+    searchtype = st.radio("The output and presentation depends on the goal of your search. Please specify:",
+                          ("Use Case Search", "Technology Search"))
+    with st.expander("Information about the search types"):
+        "lopem ipsum"
+
+    if uploadFile == None:
+        expandedQueryString = Backend.dict_to_queryString(temp_query_expanded_dict)
+
+    if searchtype == "Use Case Search" and uploadFile == None:
+        #expandedQueryString = insert_parentheses(Backend.dict_to_queryString(query_dict), expandedQueryString)
+        expandedQueryString = temp_query_usecaseSearch_string
+
+
+    queryString_refined = st.text_input("Refine your expanded query. You can add search operators or enter new terms", value=expandedQueryString)
+    with st.expander("Show possible search operators"):
+        "All terms are optional (logical OR). "
+        "Additional operators can be given:"
+        st.table([("+", "term must be present"),
+                  ("-", "term must not be present"),
+                  ("*", "Wildcard, replaces zero or more characters"),
+                  ("?", "Wildcard, replaces one character"),
+                 # ("(.....)", "Gouping of terms to form sub-queries"),
+                  (' "...." ', "Phase that must be matched"),
+                  (' "WORD1 WORD2"~NUMBER ', "maximum distance between given word; distance given in words"),
+                  ("#NOUN", "term must be a noun, e.g. brake#NOUN"),
+                  ("#VERB", "term mus be a verb"),
+                  ("#ADJ", "term must be an adjective"),
+                  ("#ADV", "term must be an adverb"),
+                  ("AND", "logical AND operator"),
+                  ("OR", "logical OR operator")
+                  ])
+    if searchtype =="Technology Search":
+        results_to_display = st.number_input("Number of results to display (for TECHNOLOGY SEARCH only)", min_value=1, value=10, key="numberresults_to_display")
+        st.markdown("Remark: For **technology search** the maximum number of terms that must be present (operator +) is 10, due to restriction in the visualisation")
+
+    query_dict_refinded = Backend.queryString_to_dict(queryString_refined)
+    " "
+
+    col1, col2 = st.columns([3,1])
+    with col1:
+        fileName = st.text_input("Name your search = file name")
+    with col2:
+        st.download_button("Synset speichern", data=queryString_refined, file_name=fileName+".txt")
+    " "
+
+
+
+    search_Type = st.radio("Search will be carried out in the fulltext of the indexed patents (all Titles, Abstacts, Descriptions and Claims) or; Define if the query should be fullfilled within a patent or within an single sentence:",
+                           ("Document search", "Sentence search"))
+
+
+
+
+    # enforce the restiction of maximum number of terms for the technology search
+    # get the number of term with operator "+"
+    disable_visualistion_button = False
+    if searchtype =="Technology Search":
+        number_positive_terms = 0
+        for term in query_dict_refinded:
+            if query_dict_refinded[term]["operator"] == "+":
+                number_positive_terms +=1
+        # stop the workstream until an exceeded number of terms reduced
+        if number_positive_terms > 10:
+            st.error("Maximum number of positive terms (operator +) exceeded. Please correct the refined query. Maximum number = 10; Number entered = "+ str(number_positive_terms))
+            disable_visualistion_button = True
+
+    if st.button("Start Visualisation",type="primary", disabled=disable_visualistion_button):
+        startVisualisation()
+        if searchtype == "Use Case Search":
+            dataframe_CPC_Subclass, dataframe_CPC_Maingroup, dataframe_Assignee = Backend.useCaseSearch(queryString_refined, query_dict_refinded, search_Type)
+        if searchtype == "Technology Search":
+            overlap_results_dict = Backend.overlap_search(query_dict_refinded, search_Type, results_to_display)
+
+    if st.session_state.visualisation_start:
+        st.markdown("""---""")
+        st.header("4) Visualization")
+
+        # Definition of the visualition for the USE CASE SEARCH
+        if searchtype == "Use Case Search":
+
+            if searchtype == "Use Case Search":
+                st.write("Visualization of a use-case search")
+                st.write("CPC SUBCLASSES")
+                st.dataframe(dataframe_CPC_Subclass)
+                st.write("CPC MAIN GROUPS")
+                st.dataframe(dataframe_CPC_Maingroup)
+                st.write("ASSIGNEES")
+                st.dataframe(dataframe_Assignee)
+
+
+        # Definition of the visualition for the TECHNOLOGY SEARCH
+        if searchtype == "Technology Search":
+
+            #Create the visualisation table for each result in the dictionary of results
+            for entry in overlap_results_dict:
+                df = pd.DataFrame(overlap_results_dict[entry]["overview"])
+                df = df.transpose()
+                st.dataframe(df, use_container_width=True)
+                with st.expander("Details"):
+                    overlap_results_dict[entry]["details"]
+
+
+            # style = df.style.hide_index()
+            # style.hide_columns()
+            # st.write(style.to_html(), unsafe_allow_html=True)
+
+            # data = {
+            #     "first column": [1],
+            #     "second column": [10]}
+            # df = pd.DataFrame(data)
+            # st.dataframe(df, use_container_width=True)
+            # with st.expander("asdsafd"):
+            #     "alsdfjölkdsaökjsadflöajsf"
+            #
+            # data = {
+            #     "first column": [1],
+            #     "second column": [10]}
+            # df = pd.DataFrame(data)
+            # st.dataframe(df, use_container_width=True)
+            # with st.expander("asdsafd"):
+            #     "alsdfjölkdsaökjsadflöajsf"
+            #
+            # data = {
+            #     "first column": [1],
+            #     "second column": [10]}
+            # df = pd.DataFrame(data)
+            # st.dataframe(df, use_container_width=True)
+            # with st.expander("asdsafd"):
+            #     "alsdfjölkdsaökjsadflöajsf"
+            #
+            # with st.expander("asdsafd"):
+            #     "alsdfjölkdsaökjsadflöajsf"
+
+            #example strings for testing
+            #caption_string = "Term1 | Term2 | Term3 | Term1 | Term2 | Term3 | Term1 | Term2 | Term3 | Number of Terms | Patents"
+            #results_string = "...J...|___N___|___N___|___N___|___N___|   N   |   N   |   N   |   N   |       14        |   1    "
+            #resultsDetails_String = ["Patent123123123, Anmelder, Link,...", "Patent123123123, Anmelder, Link,...", "Patent123123123, Anmelder, Link,..."]
+
+            # st.write(caption_string)
+            #
+            # i=0
+            # for element in body_string_list:
+            #     #st.write(element)
+            #     with st.expander(element):
+            #         st.write(details_dict_list[i])
+            #         #st.write(details_dict_list[i]["Link"])
+            #     i += 1
+
+
+
+        #with st.expander(results_string):
+        #    resultsDetails_String
+        #with st.expander(results_string):
+        #    resultsDetails_String
+        #with st.expander(results_string):
+        #    resultsDetails_String
+
+
+
+
+
+        # OLD CODE TO BE DELTED EVENTUALIY
+        # st.number_input("Anzahl an Top Patenten für die Ausgabe", min_value=1, value=10, key="anzahlTopPatenten")
+        #
+        # #Ausgabe der Resultate
+        # gb1 = GridOptionsBuilder.from_dataframe(pd.DataFrame(dfAusgabeDummy))
+        # gb1.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc='sum', editable=False)
+        # gb1.configure_pagination(enabled=True, paginationPageSize=10) #Buttons zum Seitenblättern unter der Tabelle
+        # gridOptions1 = gb1.build()
+        # AgGrid(pd.DataFrame(dfAusgabeDummy),
+        #               gridOptions=gridOptions1,
+        #               enable_enterprise_modules=True,
+        #               allow_unsafe_jscode=True,
+        #               update_mode=GridUpdateMode.SELECTION_CHANGED)
+        #
+        #
+        # st.table(cpcDummy)
+        #
+        # st.subheader("ANSÄTZE FÜR ZUSÄTZLICHE AUSGABEN")
+        # "- Score als Häufigkeitsverteilung + User-Eingabe zur Einstellung eines Cut-Off-Scores, bis zu dem die Ergebnisse ausgegeben werden. Deutlich größerer Datenverkeht zw. Frontend und Backend. Fraglich bis zu welchem Score die Resultate zurückgegeben werden. Es können sicher nicht jedes mal 150.000 Patente dargestellt werden. Ggf. muss eine Reduzierung auf z.B. jedes 10. Patent in der Score-Sortierten Liste durchgeführt werden."
+        # "- Statistische Auswertugn der Suchergebnisse, insbesondere der CPC-Klassen (Histogramm der Häufigkeit des Auftretens ab Cut-Off-Score). Wäre eine Zusatzfunktion im Backend "
+        #
+        # st.subheader("Ausgabe als Overlap-Suche")
+        # st.markdown("3 Terme enthalten")
+        # AgGrid(pd.DataFrame(dfAusgabeDummy),
+        #               gridOptions=gridOptions1,
+        #               #enable_enterprise_modules=True,
+        #               allow_unsafe_jscode=True,
+        #               update_mode=GridUpdateMode.SELECTION_CHANGED,
+        #               key=1  )
+        #
+        #
+        # st.markdown("2 Terme enthalten")
+        # AgGrid(pd.DataFrame(dfAusgabeDummy),
+        #               gridOptions=gridOptions1,
+        #               enable_enterprise_modules=True,
+        #               allow_unsafe_jscode=True,
+        #               update_mode=GridUpdateMode.SELECTION_CHANGED,
+        #               key=2  )
 
 
 
 
 
 
-
+if __name__ == "__main__":
+    pass

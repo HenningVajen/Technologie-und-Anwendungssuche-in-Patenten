@@ -19,8 +19,8 @@ from spacy import displacy
 
 
 
-def nlpPipelineDurchlaufen(_patentdatenObjekt):
-    nlp = spacy.load("en_core_web_sm")
+def nlpPipelineDurchlaufen(_patentdatenObjekt, _spacyModel):
+    nlp = spacy.load(_spacyModel)
 
     # Konfiguration der NLP Pipeline abweichend vom Standard ['tok2vec', 'tagger', 'parser', 'attribute_ruler', 'lemmatizer', 'ner']
     # Tokenizer ist immer aktiviert
@@ -80,8 +80,8 @@ def posPayloadEinfuegen(text, lemma, nlp):
     wortliste = []
     for token in doc:
         if lemma == True:
-            wortliste.append(token.lemma_ + "|" +  token.pos_)
+            wortliste.append(token.lemma_ + "¶" +  token.pos_)
         else:
-            wortliste.append(token.text + "|" + token.pos_)
+            wortliste.append(token.text + "¶" + token.pos_)
     text = " ".join(wortliste)
     return text

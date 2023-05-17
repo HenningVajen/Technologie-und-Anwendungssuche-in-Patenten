@@ -11,7 +11,7 @@ import utility_NLP_Bearbeitung
 #-----------------------    CONFIG   -----------------------
 pfadDateneingabe = os.path.join(os.getcwd(), "input") #Verzeichnis in dem .json Patentdaten gesucht und verarbeitet werden sollen
 pfadDatenausgabe = os.path.join(os.getcwd(), "output") #Verzeichnis in dem (bearbeitete) Daten abgelegt werden
-bezeichnungWoerterbuch ="woerterbuch.pkl" #Dateiname der Wörterbuchdatei (im Wörterbuch sind zu den Patennnummern weiter Felder mit Informationen zum Patent abgelegt
+bezeichnungWoerterbuch ="woerterbuch_metadaten.pkl" #Dateiname der Wörterbuchdatei (im Wörterbuch sind zu den Patennnummern weiter Felder mit Informationen zum Patent abgelegt
 anzahlDokumenteInBlock = 10 #Anzahl an Dokumenten je Bearbeitungsblock
 esPort = 9200 #Port des Elasticsearch Servers
 esIndexText ="text_text" #Bezeichung des Index von Elasticsearch
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     for patentdatenDict in dictListe:
         print("Bearbeitung von Block " + str(i) + " von " + str(anzahlBloecke))
         neuesDict = {}
-        neuesDict = utility_NLP_Bearbeitung.nlpPipelineDurchlaufen(patentdatenDict)
+        neuesDict = utility_NLP_Bearbeitung.nlpPipelineDurchlaufen(patentdatenDict, "en_core_web_sm")
 
         for key in neuesDict:
             #Indexierung der einzelnen Felder jedes Patentes zusammen mit dem Feld der Patentnummer
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     #     }
     # }
 
-    response=utility_Index_und_Suche.suche(esClient,esIndexText,query)
+    response=utility_Index_und_Suche.search(esClient,esIndexText,query)
 
 
     zeitpunktEnde = datetime.now()

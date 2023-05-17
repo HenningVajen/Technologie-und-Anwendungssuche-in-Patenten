@@ -5,24 +5,28 @@ import spacy
 import utility_Datenbearbeitung
 import utility_Index_und_Suche
 import utility_NLP_Bearbeitung
+import copy
 
 
 
 #-----------------------    CONFIG   -----------------------
 pfadDateneingabe = os.path.join(os.getcwd(), "input") #Verzeichnis in dem .json Patentdaten gesucht und verarbeitet werden sollen
 pfadDatenausgabe = os.path.join(os.getcwd(), "output") #Verzeichnis in dem (bearbeitete) Daten abgelegt werden
-bezeichnungWoerterbuch ="woerterbuch.pkl" #Dateiname der Wörterbuchdatei (im Wörterbuch sind zu den Patennnummern weiter Felder mit Informationen zum Patent abgelegt
-anzahlDokumenteInBlock = 10 #Anzahl an Dokumenten je Bearbeitungsblock
+anzahlDokumenteInBlock = 50 #Anzahl an Dokumenten je Bearbeitungsblock
 esPort = 9200 #Port des Elasticsearch Servers
-esIndexText ="text_test" #Bezeichung des Index von Elasticsearch
-esIndexSaetze ="saetze_test" #Bezeichung des Index von Elasticsearch
-enablePayload = False  #True: Es wird die Wortart als Payload hinzugeführt; Bsp. "Coded|ADJ spectral|ADJ imager|NOUN"
+enablePayload = True  #True: Es wird die Wortart als Payload hinzugeführt; Bsp. "Coded|ADJ spectral|ADJ imager|NOUN"
 enableLemma = False    #True: Lemmatisiert alle Ausdrücke und Worte
-indexLoeschen = False #True: Löscht den bestehenden Index und leg einen leeren neuen Index an, z.B. zu Testzwecken
+indexLoeschen = True #True: Löscht den bestehenden Index und leg einen leeren neuen Index an, z.B. zu Testzwecken
+spacyModel = "en_core_web_sm" #Legt das zu angewendete, vortrainierte Model fest. Zur Entwicklung
+                # Zur Entwicklung verwendet "en_core_web_sm"; zum produktiven Bearbeiten ggf. Wechsel auf "en_core_web_lg"
+                # Weitere Informationen https://spacy.io/models/
+bezeichnungWoerterbuch ="woerterbuch_metadaten.pkl" #Dateiname der Wörterbuchdatei (im Wörterbuch sind zu den Patennnummern weiter Felder mit Informationen zum Patent abgelegt
+# Anlegen der internen Indexbezeichnungen
+indexFulltext = "fulltext_test"
+indexFulltextPOS = "fulltext_payload_test"
+indexSentence = "sentence_test"
+indexSentencePOS = "sentence_payload_test"
 #-----------------------------------------------------------
-
-
-
 
 
 if __name__ == "__main__":
@@ -41,18 +45,30 @@ if __name__ == "__main__":
 
         # Starten des Elasticsearch Servers und anlegen der Indexe
         if indexLoeschen:
-            utility_Index_und_Suche.indexLoeschen(esClient, esIndexText)  # Löschen der alten Indexes zu Testzwecken
-            utility_Index_und_Suche.indexLoeschen(esClient, esIndexSaetze)  # Löschen der alten Indexes zu Testzwecken
-        utility_Index_und_Suche.indexAnlegen(esClient, esIndexText)
-        utility_Index_und_Suche.indexAnlegen(esClient, esIndexSaetze)
+            utility_Index_und_Suche.indexLoeschen(esClient, indexFulltext)
+            utility_Index_und_Suche.indexLoeschen(esClient, indexFulltextPOS)
+            utility_Index_und_Suche.indexLoeschen(esClient, indexSentence)
+            utility_Index_und_Suche.indexLoeschen(esClient, indexSentencePOS)
+        utility_Index_und_Suche.indexAnlegen(esClient, indexFulltext)
+        utility_Index_und_Suche.indexAnlegen(esClient, indexFulltextPOS)
+        utility_Index_und_Suche.indexAnlegen(esClient, indexSentence)
+        utility_Index_und_Suche.indexAnlegen(esClient, indexSentencePOS)
         esIndicesClient = utility_Index_und_Suche.indicesClientStarten(esClient)
 
         #Starten von Spacy (In main und nicht im jeweiligen Funktionsaufruf, zur Laufzeitoptimierung)
-        nlp = spacy.load("en_core_web_sm")
+        nlp = spacy.load(spacyModel)
 
         patentdatenDict = utility_Datenbearbeitung.jsonDateienEinlesen(pfadDateneingabe)
-        print("Speicherung des Wörterbuchs im Pfad " + str(pfadDatenausgabe))
-        print(utility_Datenbearbeitung.speichereObjekt(patentdatenDict, pfadDatenausgabe, bezeichnungWoerterbuch))
+
+        # Speicherung der Metadaten des Wörterbuches zur späteren Verwendung im Backend
+        print("\n", '########## Speicherung des Wörterbuchs der Metadaten ##########')
+        print("Speicherung des Wörterbuchs mit den Metadaten der eingelesenen Patente im Pfad " + str(pfadDatenausgabe))
+        patentdatenDict_META = copy.deepcopy(patentdatenDict)
+        for eintrag in patentdatenDict_META:
+            del patentdatenDict_META[eintrag]["abstract"]
+            del patentdatenDict_META[eintrag]["claims"]
+            del patentdatenDict_META[eintrag]["description"]
+        print(utility_Datenbearbeitung.speichereObjekt(patentdatenDict_META, pfadDatenausgabe, bezeichnungWoerterbuch))
 
 
         print("\n", '########## NLP Bearbeitugn und Indexierung ##########')
@@ -67,10 +83,20 @@ if __name__ == "__main__":
             print("Bearbeitung von Block " + str(i) + " von " + str(anzahlBloecke))
             neuesDict = {}
             neuesDict = patentdatenDict
-            neuesDict = utility_NLP_Bearbeitung.nlpPipelineDurchlaufen(patentdatenDict)
+            neuesDict = utility_NLP_Bearbeitung.nlpPipelineDurchlaufen(patentdatenDict, spacyModel)
 
 
             for key in neuesDict:
+                docText = {
+                    "publication_number": key,
+                    "title": neuesDict[key]['title'],
+                    "abstract": neuesDict[key]['abstract'],
+                    "claims": neuesDict[key]['claims'],
+                    "description": neuesDict[key]['description'],
+                    "assignee": neuesDict[key]['assignee1']
+                }
+                utility_Index_und_Suche.dokumentIndexieren(esClient, indexFulltext, docText)
+
                 if enablePayload == True:
                     # Hinzufügen der POS Tags nach jedem Wort als Payload für jeden Eintrag im Dict
                     docText = {
@@ -81,31 +107,29 @@ if __name__ == "__main__":
                         "description": utility_NLP_Bearbeitung.posPayloadEinfuegen(neuesDict[key]['description'], enableLemma, nlp),
                         "assignee": neuesDict[key]['assignee1']
                     }
-                else:
-                    docText = {
-                        "publication_number": key,
-                        "title": neuesDict[key]['title'],
-                        "abstract": neuesDict[key]['abstract'],
-                        "claims": neuesDict[key]['claims'],
-                        "description": neuesDict[key]['description'],
-                        "assignee": neuesDict[key]['assignee1']
-                    }
-                utility_Index_und_Suche.dokumentIndexieren(esClient, esIndexText, docText)
+                    utility_Index_und_Suche.dokumentIndexieren(esClient, indexFulltextPOS, docText)
+
+
 
                 # Ablage jedes Satzes, jedes Dokumentes in einem Indexeintrag zusammen mit dem Feld der Patentnummer
                 saetze = list(neuesDict[key]['NLP_doc'].sents)
                 for satz in saetze:
+                    satz_ = str(satz)
+                    utility_Index_und_Suche.dokumentIndexieren(esClient, indexSentence,
+                                                               {"publication_number": key, "satz": satz_})
                     if enablePayload:
                         satz_ = utility_NLP_Bearbeitung.posPayloadEinfuegen(str(satz),enableLemma, nlp)
-                    else:
-                        satz_=str(satz)
-                    utility_Index_und_Suche.dokumentIndexieren(esClient, esIndexSaetze, {"publication_number": key, "satz": satz_})
+                        utility_Index_und_Suche.dokumentIndexieren(esClient, indexSentencePOS,
+                                                                   {"publication_number": key, "satz": satz_})
+
             del (neuesDict)
             i += 1
 
     if modus == 1:
-        utility_Index_und_Suche.refresh(esClient, esIndexText)
-        utility_Index_und_Suche.refresh(esClient, esIndexSaetze)
+        utility_Index_und_Suche.refresh(esClient, indexFulltext)
+        utility_Index_und_Suche.refresh(esClient, indexFulltextPOS)
+        utility_Index_und_Suche.refresh(esClient, indexSentence)
+        utility_Index_und_Suche.refresh(esClient, indexSentencePOS)
 
     if modus == 2:
         pass
@@ -150,23 +174,23 @@ if __name__ == "__main__":
             'assignee': "Hugo Hubertus",
         }
 
-        utility_Index_und_Suche.dokumentIndexieren(esClient,esIndexText,doc1)
-        utility_Index_und_Suche.dokumentIndexieren(esClient, esIndexText, doc2)
-        utility_Index_und_Suche.refresh(esClient, esIndexText)
+        utility_Index_und_Suche.dokumentIndexieren(esClient,"indexfulltexttest",doc1)
+        utility_Index_und_Suche.dokumentIndexieren(esClient, "indexfulltexttest", doc2)
+        utility_Index_und_Suche.refresh(esClient, indexFulltext)
         #print(elasticsearch.getDocument(esIndex,esClient,"V0IblIQBXLfNnWU7TaQ0"))
 
-        query = {
-            "match": {
-                "description": "Schreibtisch"
-            }
-        }
         # query = {
-        #     "match_all": {
-        #         "Schreibtisch"
+        #     "match": {
+        #         "description": "Schreibtisch"
         #     }
         # }
 
-        response=utility_Index_und_Suche.suche(esClient,esIndexText,query)
+        query = {
+            "match_all": "Schreibtisch"
+            }
+
+
+        response=utility_Index_und_Suche.search(esClient,indexFulltext,query)
 
     zeitpunktEnde = datetime.now()
     print("\n", "Dauer der Bearbeitung = ", zeitpunktEnde - zeitpunktStart)

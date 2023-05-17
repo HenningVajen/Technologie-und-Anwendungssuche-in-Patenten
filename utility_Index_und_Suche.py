@@ -8,10 +8,12 @@ def clientStarten(_port):
     client = Elasticsearch("http://localhost:"+str(_port))
     if client.ping():
         print("Verbindung zum Elasticsearch Server hergestellt")
+        return client
     else:
         print("Verbindung zum Elasticsearch Server fehlgeschlagen. Verwendendeter Port: " +str(_port))
-        sys.exit()
-    return client
+        return False
+        #sys.exit()
+
 
 
 def indicesClientStarten(client):
@@ -88,11 +90,12 @@ def getDocument(index_, client_, id_):
     return(resp['_source'])
 
 
-def suche(client_, index_, query):
-    resp = client_.search(index=index_ ,query=query)
+def search(client_, index_, query):
+    resp = client_.search(index=index_ ,query=query, size=10000) #size means the max. number of documents that are stored in the response. 10000 is the Elasticsearch Limits w/o changes to the Server
     print("Trefferanzahl: " + str(resp['hits']['total']['value']))
     #for hit in resp['hits']['hits']:
     #   print(hit['_source']['title'])
     return resp['hits']['hits']
+
 
 

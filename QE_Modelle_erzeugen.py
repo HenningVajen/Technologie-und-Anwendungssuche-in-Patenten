@@ -3,6 +3,8 @@ import gensim
 from gensim.models.fasttext import FastText
 import os
 
+# OBSOLETE! DAS LADEN DES MODELS WIRD DIREKT IM BACKEND DURCHGEFÜHRT
+
 
 #-----------------------    CONFIG   -----------------------
 pfadDateneingabe = os.path.join(os.getcwd(), "input") #Verzeichnis in dem .json Patentdaten gesucht und verarbeitet werden sollen
@@ -26,11 +28,11 @@ if __name__ == "__main__":
     loaded_HPI_FastText = gensim.models.fasttext.load_facebook_vectors(pfadFasttextModel)
     print(loaded_HPI_FastText)
 
-    man = expandQueryFastext("man")
-    brake= expandQueryFastext("brake")
-    tractor = expandQueryFastext("tractor")
-    trailer = expandQueryFastext("trailer")
-    car = expandQueryFastext("car")
+    # man = expandQueryFastext("man")
+    # brake= expandQueryFastext("brake")
+    # tractor = expandQueryFastext("tractor")
+    # trailer = expandQueryFastext("trailer")
+    # car = expandQueryFastext("car")
 
 
     zeitpunktEnde = datetime.now()
