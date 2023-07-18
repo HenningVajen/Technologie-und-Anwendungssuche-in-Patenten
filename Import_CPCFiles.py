@@ -1,5 +1,6 @@
 #loads .csv files with CPC titles and stores them into a dict and saves the dict in a pickle file
 
+import config
 import csv
 import os
 import utility_Datenbearbeitung

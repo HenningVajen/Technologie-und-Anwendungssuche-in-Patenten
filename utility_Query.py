@@ -1,18 +1,9 @@
 import os
 import utility_Index_und_Suche
+import config
 
 
 
-#-----------------------    CONFIG   -----------------------
-esPort = 9200 #Port des Elasticsearch Servers
-esIndexText ="text_test" #Bezeichung des Index von Elasticsearch
-esIndexSaetze ="saetze_test" #Bezeichung des Index von Elasticsearch
-esIndexText_POS ="text_test_payload" #Bezeichnug des um POS-Tag angereichten Index
-esIndexSaetze_POS ="saetze_test_payload" #Bezeichnug des um POS-Tag angereichten Satz-Index
-esIndexText_POS ="text_test_payload_lemma"
-esIndexSaetze_POS ="saetze_test_payload_lemma"
-
-#-----------------------------------------------------------
 
 def alleDokumente():
     #Rückgabe aller Dokumente in einem Index
@@ -59,7 +50,7 @@ def sucheSatzweise(keywords):
         }
     }
 
-    resp = esClient.search(index=esIndexSaetze, query=query_)
+    resp = esClient.search(index=config.esIndexSaetze, query=query_)
     return resp
 
 def suchePhrase (keyword,feld):
@@ -96,7 +87,7 @@ def sucheStringQueryPOS(keywords, felder = "volltext"):
 if __name__ == "__main__":
     print('Ausführung als main: ' + __file__)
 
-    esClient = utility_Index_und_Suche.clientStarten(esPort)
+    esClient = utility_Index_und_Suche.clientStarten(config.esPort)
 
     #index_ = esIndexText
     #antwort = alleDokumente()
@@ -105,7 +96,7 @@ if __name__ == "__main__":
     #antwort = sucheSatzweise("detection")
 
     #POS Suche
-    index_ = esIndexText_POS
+    index_ = config.esIndexText_POS
     #antwort = suchePhrase("machine|NOUN", "title")
     antwort = sucheStringQueryPOS("machine|NOUN", ["title"])
 

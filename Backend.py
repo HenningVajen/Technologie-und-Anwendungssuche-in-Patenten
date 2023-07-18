@@ -1,3 +1,4 @@
+import config
 import itertools
 
 import numpy as np
@@ -13,22 +14,7 @@ import re
 
 
 #-----------------------    CONFIG   -----------------------
-pfadCPCDict = os.path.join(os.getcwd(), "model_data", "CPCDict.pkl")      #Pfad zur Datei mit dem Wörterbuch der CPC-Beschreibungen
-pfadDateneingabe = os.path.join(os.getcwd(), "input") #Verzeichnis in dem .json Patentdaten gesucht und verarbeitet werden sollen
-pfadDateneingabe = os.path.join(os.getcwd(), "model_data") #Verzeichnis in dem .json Patentdaten gesucht und verarbeitet werden sollen
-DateinameFasttextModel = "patent-100.bin" #Dateiname des vewendeten Fasttext Models. nur .bin Datei. .vec ist menschenlesbar, aber redundant und wird ignoriert
-pfadFasttextModel = os.path.join(os.getcwd(), "model_data", DateinameFasttextModel)
-pfadPatentWoerterbuch = os.path.join(os.getcwd(), "model_data", "woerterbuch_metadaten.pkl") #Pfad zur Datei des in der Datenvorbereitung erzeugten Wörterbuches der Metadaten der eingelesenen Patente
-jobim_API_URL = 'http://ltmaggie.informatik.uni-hamburg.de/jobimviz/ws' #API für das Jobim Model, Standard ist die Demo der Uni HH
-ListeQueryOperatoren =["and", "or", "not"]
-esPort = 9200 #Port des Elasticsearch Servers
-listOfSearchfield = ("title", "abstract", "claims", "description")
-# Anlegen der internen Indexbezeichnungen / muss identisch sein zu den Bezeichnungen beim Anlegen in Datenvorbereitung.py
-indexFulltext = "fulltext"
-indexFulltextPOS = "fulltext_payload"
-indexSentence = "sentence"
-indexSentencePOS = "sentence_payload"
-html_baselink_for_patents = "https://worldwide.espacenet.com/patent/search?q=pn%3D" #to be added with the Patentnumber, without "-", e.g. 'US-9614992-B2' => 'https://worldwide.espacenet.com/patent/search?q=pn%3DUS9614992B2'
+
 #-----------------------------------------------------------
 
 
@@ -37,22 +23,26 @@ html_baselink_for_patents = "https://worldwide.espacenet.com/patent/search?q=pn%
 
 #-----------------------------------------------------------
 
+def test():
+    print("Backend Test ausgeführt")
+    return("test")
+
 def dictPatentdaten_einlesen():
-    file = open(pfadPatentWoerterbuch, 'rb')
+    file = open(config.pfadPatentWoerterbuch, 'rb')
     woerterbuch = pickle.load(file)
     file.close()
     return woerterbuch
 
 
 def dictCPC_einlesen():
-    file = open(pfadCPCDict, 'rb')
+    file = open(config.pfadCPCDict, 'rb')
     woerterbuch = pickle.load(file)
     file.close()
     return woerterbuch
 
 
 def getCPC(_cpc):
-    return (CPCdict[_cpc])
+    return (config.CPCdict[_cpc])
 
 
 def serverstatus_abfragen(_esClient):
@@ -64,14 +54,18 @@ def serverstatus_abfragen(_esClient):
         return False
 
 
-def startFastext():
-    loaded_HPI_FastText = gensim.models.fasttext.load_facebook_vectors(pfadFasttextModel)
+def startFastText():
+    print("FastText Modell wird geladen")
+    print(config.pfadFasttextModel)
+    loaded_HPI_FastText = gensim.models.fasttext.load_facebook_vectors(config.pfadFasttextModel)
+    if loaded_HPI_FastText != None:
+        print("FastText Modell geladen")
     return loaded_HPI_FastText
     #fastTextModel = gensim.models.fasttext.load_facebook_vectors(pfadFasttextModel)
 
 
 def startElasticsearchClient():
-    esClient = utility_Index_und_Suche.clientStarten(esPort)
+    esClient = utility_Index_und_Suche.clientStarten(config.esPort)
     esClient.ping
     return esClient
 
@@ -113,7 +107,7 @@ def queryExpansion_JoBim(wort, anzahl, pos_tag=None):
     else:
         holingtype = "stanford"
 
-    jbAPI = JoBimText(api_url=jobim_API_URL)
+    jbAPI = JoBimText(api_url=config.jobim_API_URL)
     similar = jbAPI.similar(wort, pos = pos_tag, url_params={}, holingtype=holingtype)
 
     if similar.error != None:
@@ -251,17 +245,24 @@ def expandWord(word, termNumber,posTag=None, wordnet=True, jobimText=True, hpiFa
     if hpiFastText:
         wordlists["hpiFastText"] = queryExpansion_Fastext(word, fastextModel, termNumber)
 
+    # Erstellung des Startwertes des Randscores; max Anzahl an Termen in der längsten Liste.
+    start_score = 0
+    for liste in wordlists:
+        if wordlists[liste].__len__() > start_score:
+            start_score = wordlists[liste].__len__()
+
     for list in wordlists:
-        rankScore = termNumber #Startwert des Rankscores auf dem ersten Rank, wird mit jedem weiteren Rank um 1 reduziert
+        rankScore = start_score #Startwert des Rankscores auf dem ersten Rank, wird mit jedem weiteren Rank um 1 reduziert
         for element in wordlists[list]:
-            doublicat=False
-            for elementReturnlist in returnlist:    #Prüfung, das jeweilige Element bereits vorhanden ist (aus einem anderen QE-Modell und addiert ggf. den Score)
-                if element[1] == elementReturnlist[1]:
-                    elementReturnlist[0] += rankScore
-                    doublicat = True
-            if doublicat == False:          #Hinzufügen des Elementes zur Rückgabe liste inkl. Rankscore, falls es noch in der Liste vorhanden war
-                returnlist.append([rankScore, element[1]])
-            rankScore -= 1
+            if element[1] != word:
+                doublicat=False
+                for elementReturnlist in returnlist:    #Prüfung, das jeweilige Element bereits vorhanden ist (aus einem anderen QE-Modell und addiert ggf. den Score)
+                    if element[1] == elementReturnlist[1]:
+                        elementReturnlist[0] += rankScore
+                        doublicat = True
+                if doublicat == False:          #Hinzufügen des Elementes zur Rückgabe liste inkl. Rankscore, falls es noch in der Liste vorhanden war
+                    returnlist.append([rankScore, element[1]])
+                rankScore -= 1
     returnlist.sort(reverse=True)
     #Übergibt die Liste inklusive des Ranges oder entfernt den Rang vor der Rückgabe
     if return_rank:
@@ -290,7 +291,10 @@ def queryString_to_dict(query_string):
     query_dict = {}
 
     # Split the query string by whitespace and double quotes
-    term_list = re.findall(r'(?:".*?"|\S+)', query_string)
+    #term_list = re.findall(r'(?:".*?"|\S+)', query_string)
+    term_list = re.findall(r'(?:".*?"|\S+(?=\s|$))', query_string)
+    term_list = re.findall(r'(?:\+?"[^"]*"|\S+)', query_string)
+    print(term_list)
 
     i = 0
     while i < len(term_list):
@@ -326,7 +330,8 @@ def queryString_to_dict(query_string):
         if index != -1:  # Wenn eine Tilde gefunden wurde
             term = term[:index]  # Extrahieren des Textes links von der Tilde
 
-        query_dict[term] = {"operator": operator, "pos_tag": pos_tag, "proximity": proximity}
+        if term != "":
+            query_dict[term] = {"operator": operator, "pos_tag": pos_tag, "proximity": proximity}
 
         i += 1
 
@@ -410,7 +415,7 @@ def splitQuery(query, returnPOS=True):
     query = query.replace("(", "")
     query = query.replace(")", "")
     liste = query.rsplit()
-    for operator in ListeQueryOperatoren:
+    for operator in config.ListeQueryOperatoren:
         if liste.__contains__(operator):
             liste.remove(operator)
     liste2 = []
@@ -457,13 +462,13 @@ def useCaseSearch(searchString, query_dict, search_type):
 
     # Set the search index based on pos_tag
     if search_type == "Document search":
-        search_index = indexFulltext
+        search_index = config.indexFulltext
     if search_type == "Document search" and any(term.get("pos_tag") for term in query_dict.values()):
-        search_index = indexFulltextPOS
+        search_index = config.indexFulltextPOS
     if search_type == "Sentence search":
-        search_index = indexSentence
+        search_index = config.indexSentence
     if search_type == "Sentence search" and any(term.get("pos_tag") for term in query_dict.values()):
-        search_index = indexSentencePOS
+        search_index = config.indexSentencePOS
 
     # Create and execute the query
     query = \
@@ -553,17 +558,7 @@ def overlap_search(query_dict, search_type, results_to_display):
     esclient = startElasticsearchClient()
     patentdict = dictPatentdaten_einlesen()
 
-    # Set the search index based on pos_tag
-    if search_type == "Document search":
-        search_index = indexFulltext
-    if search_type == "Document search" and any(term.get("pos_tag") for term in query_dict.values()):
-        search_index = indexFulltextPOS
-    if search_type == "Sentence search":
-        search_index = indexSentence
-    if search_type == "Sentence search" and any(term.get("pos_tag") for term in query_dict.values()):
-        search_index = indexSentencePOS
-
-    # Correction of the proximity when search in done in an index with these tag. As the tags are interpreted as word, the proximity has to be increased accordingly (P = 2*P+1)
+   # Correction of the proximity when search in done in an index with these tag. As the tags are interpreted as word, the proximity has to be increased accordingly (P = 2*P+1)
     for term in query_dict:
         if query_dict[term]["proximity"] != None:
             query_dict[term]["proximity"] = query_dict[term]["proximity"]* 2 + 1
@@ -592,13 +587,24 @@ def overlap_search(query_dict, search_type, results_to_display):
             a_str = "".join(a) #is a string with charaters of the list like , ( )
             chars_to_remove = "',()[]"
             translator = str.maketrans('', '', chars_to_remove)
-            a_str_cleaned = a_str.translate(translator) # remove the unwandted characters in the string
+            a_str_cleaned = a_str.translate(translator) # remove the unwanded characters in the string
             queries_list.append(a_str_cleaned)
 
     # Generation of the query format and call of the search
     # storing the results in the results_dict
     results_dict = {}
     for queryString in queries_list:
+
+        # Set the search index based on pos_tag
+        if search_type == "Document search":
+            search_index = config.indexFulltext
+        if search_type == "Document search" and "#" in queryString:
+            search_index = config.indexFulltextPOS
+        if search_type == "Sentence search":
+            search_index = config.indexSentence
+        if search_type == "Sentence search" and "#" in queryString:
+            search_index = config.indexSentencePOS
+
         queryString = queryString.replace("#","¶") #replace the POS separator
 
         query = \
@@ -613,7 +619,8 @@ def overlap_search(query_dict, search_type, results_to_display):
 
         result = utility_Index_und_Suche.search(esclient, search_index, query)
         if result != []:
-            foundTerms =  [word[1:] for word  in queryString.split() if word.startswith("+")] # Extracts the term with "+" form the query
+            #foundTerms =  [word[1:] for word  in queryString.split() if word.startswith("+")] # Extracts the term with "+" form the query
+            foundTerms = re.findall(r'\+("[^"]*"|\w+)', queryString)  # Extracts the term with "+" form the query
             publicationNumbers = []
             for entry in result:
                 publicationNumbers.append(entry["_source"]["publication_number"])
@@ -673,6 +680,7 @@ def overlap_search(query_dict, search_type, results_to_display):
 
     #create DICT OF DETAILS
     sorted_results = sorted(results_dict.items(), key=lambda x: x[1]['Number of Terms'], reverse=True) #list of results, sorted by the number of term found
+    sorted_results = sorted_results[:results_to_display] #reducte the list to the number of elements to display
     details_dict_list = []
     for i in range(min(results_to_display, sorted_results.__len__())):
         temp_dict_list = []
@@ -682,38 +690,54 @@ def overlap_search(query_dict, search_type, results_to_display):
                 "Title": patentdict[publication]["title"],
                 "Assignee": patentdict[publication]["assignee1"],
                 "Publication Date": patentdict[publication]["publication_date"],
-                "Link": html_baselink_for_patents + publication.replace("-","")
+                "Link": config.html_baselink_for_patents + publication.replace("-","")
             }
             temp_dict_list.append(temp_dict)
-        details_dict_list.append(temp_dict_list)
 
+        # in sentence search a patent can be found multiple times, therefor it must not be added if allready in the list
+        unique_temp_dict_list = []
+        for element in temp_dict_list:
+            if element not in unique_temp_dict_list:
+                unique_temp_dict_list.append(element)
+
+        details_dict_list.append(unique_temp_dict_list)
 
     #create DICT OF RESULTS
     overlap_results_dict = {}
     i = 0
-    for entry in sorted_results:
-        second_row = []
-        caption_terms = included_terms.copy()
+    if sorted_results.__len__() > 0:
+        for entry in sorted_results:
+            second_row = []
+            caption_terms = included_terms.copy()
+            caption_terms_noPOS = []
+            for term_ in caption_terms:
+                if "#" in term_:
+                    caption_terms_noPOS.append(term_.split("#")[0])
+                else:
+                    caption_terms_noPOS.append(term_)
 
-        for term in caption_terms:
-            if term in sorted_results[i][1]["Found Terms"]:
-                second_row.append("Y")
-            else:
-                second_row.append("N")
 
-        second_row.append(sorted_results[i][1]["Number of Terms"])
-        second_row.append(sorted_results[i][1]["Number of Publications"])
-        caption_terms.append("No. of TERMS")
-        caption_terms.append("No. of PATENTS")
 
-        overlap_results_dict[i] = {
-            "overview": {
-                "=>": caption_terms,
-                " ": second_row
-            },
-            "details": details_dict_list[i]
-            }
-        i +=1
+            for term in caption_terms_noPOS:
+                if term in sorted_results[i][1]["Found Terms"]:
+                    second_row.append("Y")
+                else:
+                    second_row.append("N")
+
+            second_row.append(sorted_results[i][1]["Number of Terms"])
+            #second_row.append(sorted_results[i][1]["Number of Publications"])
+            second_row.append(details_dict_list[i].__len__()) #Number of Publication after the reduction to unique entries
+            caption_terms.append("No. of TERMS")
+            caption_terms.append("No. of PATENTS")
+
+            overlap_results_dict[i] = {
+                "overview": {
+                    "=>": caption_terms,
+                    " ": second_row
+                },
+                "details": details_dict_list[i]
+                }
+            i +=1
 
     #return caption, body_string_list, details_dict_list
     return overlap_results_dict
@@ -734,11 +758,12 @@ def startBackend():
 
 
 if __name__ == "__main__":
-    #model = startFastext()
-    o = getOberbegriff_WordNet("brake", 1, None)
-    u = getUnterbegriff_WordNet("brake", 10, None)
-    b = expandWord("brake", 10,None, True, True, False, None)
-    pass
+    #model = startFastText()
+    #ab = expandWord("sensor", 10, None, True, True, False, None)
+    #oberbegriff = getOberbegriff_WordNet("car", 1, None)
+    #unterbegriff = getUnterbegriff_WordNet("car", 10, None)
+    #erweitert_wort = expandWord("car", 10,None, True, True, False, None)
+
     #print(queryExpansion_Wordnet("trailer"))
     #print(getOberbegriff_WordNet("brake", 10))
     #print(getUnterbegriff_WordNet("cab", 10))
@@ -763,17 +788,17 @@ if __name__ == "__main__":
     #test = expandQuery("brake#NOUN AND (tractor OR trailer) NOT car",10,True,False, False)
 
     esclient = startElasticsearchClient()
-    utility_Index_und_Suche.refresh(esclient, indexFulltext)
+    #utility_Index_und_Suche.refresh(esclient, indexFulltext)
 
     #BEISPIEL FULLTEXT
-    query = {"multi_match":{
-        "query": "waveband",
-        "fields": listOfSearchfield,
-        "operator": "or"
-        }
-    }
+    # query = {"multi_match":{
+    #     "query": "waveband",
+    #     "fields": listOfSearchfield,
+    #     "operator": "or"
+    #     }
+    # }
     #Der Operator bezieht sich auf die Suchbegriffe. "and" und "or" sind zulässig.
-    a= utility_Index_und_Suche.search(esclient, indexFulltext, query)
+    #a= utility_Index_und_Suche.search(esclient, indexFulltext, query)
     #print (a[0]["_source"])
 
 
@@ -785,59 +810,69 @@ if __name__ == "__main__":
 
     #BEISPIEL FULLTEXT MIT OPERATOREN UND PHRASE
     query = {"query_string":{
-        "query": "clean* OR separat* AND brush* AND “motion controlled”",
-        "fields": listOfSearchfield
+        #"query": "clean* OR separat* AND brush* AND “motion controlled”",
+        "query": "infusion",
+        "fields": config.listOfSearchfield
         }
     }
-    b= utility_Index_und_Suche.search(esclient, indexFulltext, query)
-    #print (a[0]["_source"])
+    b= utility_Index_und_Suche.search(esclient, config.indexFulltext, query)
+    print (b[0]["_source"])
 
 
     #BEISPIEL SUCHE INNERHALB EINES SATZES
-    query = {"query_string":{
-        #"query": "filter AND spectral AND wavebands AND multiple and processor AND configured AND to AND generate",
-        "query": "filter spectral wavebands multiple processor configured to generate",
-        "default_operator": "AND"
-        }
-    }
+    #query = {"query_string":{
+    #    #"query": "filter AND spectral AND wavebands AND multiple and processor AND configured AND to AND generate",
+    #    "query": "filter spectral wavebands multiple processor configured to generate",
+    #    "default_operator": "AND"
+    #    }
+    #}
     #alle Terme müssen mit AND verknüft sein, da sonst auch einzelne Funde in einem Satz zurückgegeben werden
-    c= utility_Index_und_Suche.search(esclient, indexSentence, query)
+    #c= utility_Index_und_Suche.search(esclient, indexSentence, query)
     #print (a[0]["_source"])
 
     #BEISPIEL VOLLTEXTSUCHE MIT EINGRENZUNG DER WORTART
-    query = {"query_string":{
-        #"query": ' "includes¶VERB" bra* "the system"~5 NOT wise ',
-        "query": '"occupy loci"~3',
-        "analyze_wildcard": True,
-        "default_operator": "AND",
-        "fields": listOfSearchfield
-        #"fuzziness": 0
-        }
-    }
+    #query = {"query_string":
+    #        {
+    #        "query": ' "includes¶VERB" bra* "the system"~5 NOT wise ',
+    #        "analyze_wildcard": True,
+    #        "default_operator": "AND",
+    #        "fields": listOfSearchfield
+    #        }
+    #    }
     #Die Hochkommas um die Wort/POS-Komibination müssen vorhanden sein, um nach der fixen Phase zu suchen
-    d= utility_Index_und_Suche.search(esclient, indexFulltextPOS, query)
+#    d= utility_Index_und_Suche.search(esclient, indexFulltextPOS, query)
 #    treffer =  (a[0]["_source"]["publication_number"])
-    print (d)
+    #print (d)
 
-    patentDict = dictPatentdaten_einlesen()
+#    patentDict = dictPatentdaten_einlesen()
 #    print(patentDict[treffer])
 #    print(patentDict[treffer]["title"])
 
-    CPCdict = dictCPC_einlesen()
-    getCPC("B01")
+#    CPCdict = dictCPC_einlesen()
+#    getCPC("B01")
 
 
-    #useCaseSearch("the", queryString_to_dict("the"), "Document search")
+#    useCaseSearch("the", queryString_to_dict("the"), "Document search")
     #useCaseSearch("( +image +picture +spectral +luminous +visual +optical +ocular) (-automotive) (-auto -automobile)", queryString_to_dict("( +image +picture +spectral +luminous +visual +optical +ocular) (-automotive) (-auto -automobile)"), "Document search")
     #useCaseSearch("the", queryString_to_dict("the"), "Sentence search")
     #testdict = queryString_to_dict('"fox quick"~5  brake "heavy vehicle" -test2 +tractor#noun -car -test')
     #testdict = queryString_to_dict('"zwei drei"~1 "vier fünf"~3 -car')
-    testdict = queryString_to_dict("+image +spectral -car")
+    testdict = queryString_to_dict('protocol "key exchange"~5 brake#VERB "coefficient of friction"')
     #testdict = queryString_to_dict("eins zwei drei -vier")
     test_result = overlap_search(testdict, "Document search", 10)
 
 
+    # Testdaten zur Dokumentatioan in der Arbeit
+    #testdict = queryString_to_dict('protocol "key exchange"~5 brake#VERB "coefficient of friction" -automotive')
+    #results = overlap_search(testdict, "Document search", 10)
+    #erweiterte_Worte = expandWord("protocol", 10, None, True, True, False, True)
+    #print(testdict)
+    #query_dict_refinded = queryString_to_dict('+measure +measures +measurement +tire +tires +pressure +pressures +"pressure level"')
+    #search_Type = "Document search"
+    #results_to_display = 10
+    #overlap_search(query_dict_refinded, search_Type, results_to_display)
 
-
+    asfd = queryString_to_dict('+"brake test" -super')
+    print(asfd)
 
 

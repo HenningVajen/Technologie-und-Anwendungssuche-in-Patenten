@@ -13,7 +13,7 @@ import random
 #-----------------------    Attribute  -----------------------
 df3 = pd.DataFrame()
 
-fasttextModel = None
+#fasttextModel = None
 
 if 'initialized' not in st.session_state:
     st.session_state.initialized = False
@@ -79,12 +79,12 @@ def set_sessionStateQueryExpansion_to_False():
     st.session_state.use_fileUpload=False
 
 #Load the model into cache to speed up the searches following the first loading
-@st.cache_data
+@st.cache_resource
 def load_fasttext(text):
-    _model = Backend.startFastext()
+    _model = Backend.startFastText()
     return _model
 
-def selectionTable(dataToDisplay):
+def selectionTable(dataToDisplay, key):
     #Creation of the selectable table; returns selectes values
     termeAuswahl = []
     gb = GridOptionsBuilder.from_dataframe(pd.DataFrame(dataToDisplay))
@@ -97,6 +97,7 @@ def selectionTable(dataToDisplay):
                   gridOptions=gridOptions,
                   #enable_enterprise_modules=True,
                   allow_unsafe_jscode=True,
+                  key=key,
                   update_mode=GridUpdateMode.SELECTION_CHANGED)
     #Die ausgewählten Terme werden an die Auswahlliste angehangen
     for auswahl in data["selected_rows"]:
@@ -111,7 +112,7 @@ st.title("Multiterm-Overlap-Search for Technologies and Use Cases in Patents")
 #-----------------------    SIDEBAR   -----------------------
 with st.sidebar:
     uploadFile = None
-    uploadFile = st.file_uploader("Load a synset", type=[".txt"])
+    uploadFile = st.file_uploader("Load Searchstring", type=[".txt"])
     if uploadFile != None:
         stringio = StringIO(uploadFile.getvalue().decode("utf-8"))
         string_data = stringio.read()
@@ -126,24 +127,27 @@ with st.sidebar:
     st.markdown("""---""")
     st.header("Status")
     # Pre-Load the HPI-FastText Model; needed to speed up search, as the loading can take several minutes
+    # Session State will be set once upon button click. Until that the model is None and it will be skipped
+    if st.session_state.fastTextModel_loaded == True:
+        fasttextModel = load_fasttext("asdf")
+    else:
+        fasttextModel = None
+    
+    button_ft = st.button("FastText Model laden")
+    if button_ft:
+        st.session_state.fastTextModel_loaded = True
+    
     if fasttextModel != None:
         st.markdown("FastText Model :green[loaded]")
     else:
         st.write("FastText Model :red[not loaded]")
-    if st.button("Load Fastext"):
-        fasttextModel = load_fasttext("asdf")
-
-
-
 
 #-----------------------    KEYWORD INPUT   -----------------------
-
 st.markdown("""---""")
 st.header("1) Keywords")
 keywords = st.text_input("Enter Keywords describing the an application or a technology ", key="keywords", placeholder="+brake +(tractor trailer) -car")
 
 with st.expander("Show possible search operators"):
-    "All terms are optional (logical OR). "
     "Additional operators can be given:"
     st.table([("+", "term must be present (default if no operator is given)"),
               ("-", "term must not be present"),
@@ -185,6 +189,7 @@ st.button("Start Query Expansion", on_click=queryExpansion(), type="primary")
 if st.session_state.initialized:
     # Can be used to update without display or not update on every entry, if performace issues arise
     if st.session_state.expandQueryStart:
+        widgetID = 0 # continuos number for all created AgGrid Tables; need in order to not run into dublicate widget ID Error
         temp_query_expanded_dict = {}
         temp_query_usecaseSearch_string = "" # generates the string for the Use Case Search
         first_word = True
@@ -195,9 +200,11 @@ if st.session_state.initialized:
 
                 # get and display  Query Expansion of each term of the query
                 st.write("Similar Terms for " + queryTerm)
+
                 data_termExpansion = {"Terms": Backend.expandWord(queryTerm, qeTermNumber,_pos_tag, wordnet, jobim, fastext, fasttextModel)}
                 data_termExpansion_DF = pd.DataFrame(data_termExpansion)
-                termSelection_queryTerm = selectionTable(data_termExpansion_DF)
+                termSelection_queryTerm = selectionTable(data_termExpansion_DF, widgetID)
+                widgetID += 1
                 userSelectedTerms = termSelection_queryTerm
 
 
@@ -207,7 +214,8 @@ if st.session_state.initialized:
                     st.write("Super Concept of " + queryTerm)
                     super = {"Terms": Backend.getOberbegriff_WordNet(queryTerm, superTermNumber, _pos_tag)}
                     super_DF = pd.DataFrame(super)
-                    termSelection_super = selectionTable(super_DF)
+                    termSelection_super = selectionTable(super_DF, widgetID)
+                    widgetID += 1
                     userSelectedTerms = userSelectedTerms + termSelection_super
 
 
@@ -217,7 +225,8 @@ if st.session_state.initialized:
                     st.write("Sub Concept of " + queryTerm)
                     sub = {"Terms": Backend.getUnterbegriff_WordNet(queryTerm, subTermNumber, _pos_tag)}
                     sub_DF = pd.DataFrame(sub)
-                    termSelection_sub = selectionTable(sub_DF)
+                    termSelection_sub = selectionTable(sub_DF, widgetID)
+                    widgetID += 1
                     userSelectedTerms = userSelectedTerms + termSelection_sub
 
                 # create new entries in the expanded query dict according to the selected terms, starts with original terms and adds after that
@@ -249,7 +258,8 @@ if st.session_state.initialized:
     searchtype = st.radio("The output and presentation depends on the goal of your search. Please specify:",
                           ("Use Case Search", "Technology Search"))
     with st.expander("Information about the search types"):
-        "lopem ipsum"
+        "Use Case Search: How can an existing technologiy be used in different contenxt"
+        "Technology Search: Which technologies can be used to establish a given Use Case"
 
     if uploadFile == None:
         expandedQueryString = Backend.dict_to_queryString(temp_query_expanded_dict)
@@ -282,6 +292,9 @@ if st.session_state.initialized:
         st.markdown("Remark: For **technology search** the maximum number of terms that must be present (operator +) is 10, due to restriction in the visualisation")
 
     query_dict_refinded = Backend.queryString_to_dict(queryString_refined)
+    queryString_refined = "'" + queryString_refined + "'"
+    st.write(queryString_refined)
+    st.write(query_dict_refinded)
     " "
 
     col1, col2 = st.columns([3,1])
@@ -290,7 +303,6 @@ if st.session_state.initialized:
     with col2:
         st.download_button("Synset speichern", data=queryString_refined, file_name=fileName+".txt")
     " "
-
 
 
     search_Type = st.radio("Search will be carried out in the fulltext of the indexed patents (all Titles, Abstacts, Descriptions and Claims) or; Define if the query should be fullfilled within a patent or within an single sentence:",
@@ -317,6 +329,8 @@ if st.session_state.initialized:
         if searchtype == "Use Case Search":
             dataframe_CPC_Subclass, dataframe_CPC_Maingroup, dataframe_Assignee = Backend.useCaseSearch(queryString_refined, query_dict_refinded, search_Type)
         if searchtype == "Technology Search":
+            #Tech_results_dict = Backend.overlap_search(query_dict_refinded, search_Type, results_to_display)
+            st.write(query_dict_refinded)
             overlap_results_dict = Backend.overlap_search(query_dict_refinded, search_Type, results_to_display)
 
     if st.session_state.visualisation_start:
@@ -343,7 +357,8 @@ if st.session_state.initialized:
             for entry in overlap_results_dict:
                 df = pd.DataFrame(overlap_results_dict[entry]["overview"])
                 df = df.transpose()
-                st.dataframe(df, use_container_width=True)
+                #st.dataframe(df, use_container_width=True)
+                st.table(df)
                 with st.expander("Details"):
                     overlap_results_dict[entry]["details"]
 

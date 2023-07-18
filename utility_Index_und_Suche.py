@@ -3,6 +3,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.client import IndicesClient
 
 
+
 def clientStarten(_port):
     client = None
     client = Elasticsearch("http://localhost:"+str(_port))
@@ -91,11 +92,13 @@ def getDocument(index_, client_, id_):
 
 
 def search(client_, index_, query):
-    resp = client_.search(index=index_ ,query=query, size=10000) #size means the max. number of documents that are stored in the response. 10000 is the Elasticsearch Limits w/o changes to the Server
+    resp = client_.search(index=index_ ,query=query, size=1000) #size means the max. number of documents that are stored in the response. 10000 is the Elasticsearch Limits w/o changes to the Server
     print("Trefferanzahl: " + str(resp['hits']['total']['value']))
     #for hit in resp['hits']['hits']:
     #   print(hit['_source']['title'])
     return resp['hits']['hits']
+
+
 
 
 

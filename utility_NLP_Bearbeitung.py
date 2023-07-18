@@ -29,8 +29,8 @@ def nlpPipelineDurchlaufen(_patentdatenObjekt, _spacyModel):
     # lemmatizer : Lammatization
     #nlp.remove_pipe('tok2vec') #Darf nicht entfernt werden, wird für die Satzerkennung benötigt
     #nlp.remove_pipe('attribute_ruler') #Darf nicht entfernt werdnen, wird für die Wortartenerkennung benötigt
-    nlp.remove_pipe('ner')
-    print("Anwendung dieser Bearbeitungsschritte: ", nlp.pipe_names)
+    nlp.remove_pipe('lemmatizer')
+    #print("Anwendung dieser Bearbeitungsschritte: ", nlp.pipe_names)
     nlp.max_length = 2000000  # Max. Anzahl an Buchstaben. Standardwert=1000000. Ca. 1 GB Arbeitsspeicher pro 1000000.
 
     txt = ""
@@ -42,7 +42,11 @@ def nlpPipelineDurchlaufen(_patentdatenObjekt, _spacyModel):
               + _patentdatenObjekt[publication_number]["claims"] + " " \
               + _patentdatenObjekt[publication_number]["description"] + " "
         # todo OPTIMIERUNG: Speicheroptimeirung - Es werdnen immer einzelne Stirngs erzeugt. Besser die .join Methode verwenden. Kann nur auf Listen angewendet werden
-
+        
+        # Garantierung der Einhaltung des max. Anzahl an Buchstaben
+        if len(txt) >= 2000000: #enforce the max. character limit of spacy by cutting the string
+            txt = txt[:1999999]
+        
         # NLP Bearbeitung des Strings
         doc = nlp(txt)
         saetze = list(doc.sents)
@@ -51,8 +55,8 @@ def nlpPipelineDurchlaufen(_patentdatenObjekt, _spacyModel):
         txt = ""
 
         i = i + 1
-        if i % 100 == 0:
-            print(str(i) + " von " + str(_patentdatenObjekt.__len__()) + " Dokumenten bearbeitet.")
+        #if i % 100 == 0:
+        #   print(str(i) + " von " + str(_patentdatenObjekt.__len__()) + " Dokumenten bearbeitet.")
     return _patentdatenObjekt
 
 
@@ -76,6 +80,8 @@ def objektVisualisieren(patentdatenObjekt_):
 
 def posPayloadEinfuegen(text, lemma, nlp):
     #nlp = spacy.load("en_core_web_sm")
+    if len(text) >= 1000000: #enforce the max. character limit of spacy by cutting the string
+        text = text[:999999]
     doc = nlp(text)
     wortliste = []
     for token in doc:

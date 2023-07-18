@@ -5,29 +5,17 @@ import pickle
 
 import utility_Index_und_Suche
 import utility_NLP_Bearbeitung
-
-
-
-#-----------------------    CONFIG   -----------------------
-pfadDateneingabe = os.path.join(os.getcwd(), "input") #Verzeichnis in dem .json Patentdaten gesucht und verarbeitet werden sollen
-pfadDatenausgabe = os.path.join(os.getcwd(), "output") #Verzeichnis in dem (bearbeitete) Daten abgelegt werden
-bezeichnungWoerterbuch ="woerterbuch_metadaten.pkl" #Dateiname der Wörterbuchdatei (im Wörterbuch sind zu den Patennnummern weiter Felder mit Informationen zum Patent abgelegt
-anzahlDokumenteInBlock = 10 #Anzahl an Dokumenten je Bearbeitungsblock
-esPort = 9200 #Port des Elasticsearch Servers
-esIndexText ="text_text" #Bezeichung des Index von Elasticsearch
-esIndexSaetze ="saetze_text" #Bezeichung des Index von Elasticsearch
-esIndexWoerterbuch ="woerterbuch_text" #Bezeichung des Index von Elasticsearch
-
-#-----------------------------------------------------------
+import config
 
 
 
 def dateienEinlesen(_pfad):
     _dateienListe = os.listdir(_pfad)  # Dateiliste im Verzeich der Datenablage erstellen
+    __dateienListe = _dateienListe.copy()
     for datei in _dateienListe:
         if not ('.json' in datei):
-            _dateienListe.remove(datei)
-    return _dateienListe
+            __dateienListe.remove(datei)
+    return __dateienListe
 
 
 def leseJSONlines(dateienListe_):
@@ -37,7 +25,7 @@ def leseJSONlines(dateienListe_):
     cpcLeereListe = [cpcLeerDict, cpcLeerDict]
 
     for datei_ in dateienListe_:
-        with open(os.path.join(pfadDateneingabe, datei_), 'r') as jsonDatei:
+        with open(os.path.join(config.pfadDateneingabe, datei_), 'r') as jsonDatei:
             for line in jsonDatei:
                 temp = json.loads(line)
                 if not temp["cpc"]: #Fängt leere Einträge ab
@@ -64,7 +52,7 @@ def zaehlenEinzigartigerPatente(dateienListe_):
     patentdatenObjekt_ = dict()
     anzahlDoubletten = 0
     for datei_ in dateienListe_:
-        with open(os.path.join(pfadDateneingabe, datei_), 'r') as jsonDatei:
+        with open(os.path.join(config.pfadDateneingabe, datei_), 'r') as jsonDatei:
             for line in jsonDatei:
                 temp = json.loads(line)
                 print (temp["cpc"][0]['code'])
@@ -125,28 +113,28 @@ if __name__ == "__main__":
     print('Ausführung als main')
 
     print("\n", '########## Einlesen der Dateien ##########')
-    print("Pfad der Daten: " + str(pfadDateneingabe))
-    dateienListe = dateienEinlesen(pfadDateneingabe)
+    print("Pfad der Daten: " + str(config.pfadDateneingabe))
+    dateienListe = dateienEinlesen(config.pfadDateneingabe)
     print("Einlesen der Dateie(n) " + str(dateienListe))
     patentdatenDict = dict()
     patentdatenDict = leseJSONlines(dateienListe)
-    print("Speicherung des Wörterbuchs im Pfad " + str(pfadDatenausgabe))
-    print(speichereObjekt(patentdatenDict,pfadDatenausgabe,bezeichnungWoerterbuch))
+    print("Speicherung des Wörterbuchs im Pfad " + str(config.pfadDatenausgabe))
+    print(speichereObjekt(patentdatenDict,config.pfadDatenausgabe,config.bezeichnungWoerterbuch))
 
 
     print("\n", '########## NLP Bearbeitugn und Indexierung ##########')
     #Aufteilung der Dokumente für die Bearbeitung und Indexierung, zur Reduktion des benötigten Speichers
-    anzahlBloecke = int((patentdatenDict.__len__() - 1) / anzahlDokumenteInBlock) + 1
-    print("Daten werden aufgeteilt in Blöcke zu " + str(anzahlDokumenteInBlock) + " Datensätzen. Anzahl der Blöcke = " + str(anzahlBloecke))
-    dictListe = split_dictionary(patentdatenDict, anzahlDokumenteInBlock)
+    anzahlBloecke = int((patentdatenDict.__len__() - 1) / config.anzahlDokumenteInBlock) + 1
+    print("Daten werden aufgeteilt in Blöcke zu " + str(config.anzahlDokumenteInBlock) + " Datensätzen. Anzahl der Blöcke = " + str(anzahlBloecke))
+    dictListe = split_dictionary(patentdatenDict, config.anzahlDokumenteInBlock)
 
 
     #Starten des Elasticsearch Servers und anlegen der Indexes
-    esClient = utility_Index_und_Suche.clientStarten(esPort)
-    utility_Index_und_Suche.indexLoeschen(esClient, esIndexText) #Löschen der alten Indexes zu Testzwecken
-    utility_Index_und_Suche.indexLoeschen(esClient, esIndexSaetze) #Löschen der alten Indexes zu Testzwecken
-    utility_Index_und_Suche.indexAnlegen(esClient, esIndexText)
-    utility_Index_und_Suche.indexAnlegen(esClient, esIndexSaetze)
+    esClient = utility_Index_und_Suche.clientStarten(config.esPort)
+    utility_Index_und_Suche.indexLoeschen(esClient, config.esIndexText) #Löschen der alten Indexes zu Testzwecken
+    utility_Index_und_Suche.indexLoeschen(esClient, config.esIndexSaetze) #Löschen der alten Indexes zu Testzwecken
+    utility_Index_und_Suche.indexAnlegen(esClient, config.esIndexText)
+    utility_Index_und_Suche.indexAnlegen(esClient, config.esIndexSaetze)
 
     esIndicesClient = utility_Index_und_Suche.indicesClientStarten(esClient)
 
@@ -182,12 +170,12 @@ if __name__ == "__main__":
                 "description": neuesDict[key]['description'],
                 "assignee": neuesDict[key]['assignee1']
             }
-            utility_Index_und_Suche.dokumentIndexieren(esClient, esIndexText, docText)
+            utility_Index_und_Suche.dokumentIndexieren(esClient, config.esIndexText, docText)
 
             #Ablage jedes Satzes, jedes Dokumentes in einem Indexeintrag zusammen mit dem Feld der Patentnummer
             saetze = list(neuesDict[key]['NLP_doc'].sents)
             for satz in saetze:
-                utility_Index_und_Suche.dokumentIndexieren(esClient,esIndexSaetze, {"publication_number": key, "satz": str(satz)})
+                utility_Index_und_Suche.dokumentIndexieren(esClient,config.esIndexSaetze, {"publication_number": key, "satz": str(satz)})
 
         del(neuesDict)
         i+=1
@@ -219,9 +207,9 @@ if __name__ == "__main__":
         'assignee': "Hugo Hubertus",
     }
 
-    utility_Index_und_Suche.dokumentIndexieren(esClient,esIndexText,doc1)
-    utility_Index_und_Suche.dokumentIndexieren(esClient, esIndexText, doc2)
-    utility_Index_und_Suche.refresh(esClient, esIndexText)
+    utility_Index_und_Suche.dokumentIndexieren(esClient,config.esIndexText,doc1)
+    utility_Index_und_Suche.dokumentIndexieren(esClient, config.esIndexText, doc2)
+    utility_Index_und_Suche.refresh(esClient, config.esIndexText)
     #print(MOST_elastic.getDocument(esIndex,esClient,"V0IblIQBXLfNnWU7TaQ0"))
 
     query = {
@@ -235,7 +223,7 @@ if __name__ == "__main__":
     #     }
     # }
 
-    response=utility_Index_und_Suche.search(esClient,esIndexText,query)
+    response=utility_Index_und_Suche.search(esClient,config.esIndexText,query)
 
 
     zeitpunktEnde = datetime.now()
