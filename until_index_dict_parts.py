@@ -1,4 +1,5 @@
-# Das verwendete Multithreading Package akzeptiert nur Funktionen über die mehrere Threads eröffnetwerden, die in einzelnen Dateien liegen, daher wurde diese Funktion aus der Datenvorbereitung.py ausgegliedert
+# Das verwendete Multithreading Package akzeptiert nur Funktionen über die mehrere Threads eröffnetwerden,
+# die in einzelnen Dateien liegen, daher wurde diese Funktion aus der Datenvorbereitung.py ausgegliedert
 import spacy
 import utility_Index_und_Suche
 import utility_NLP_Bearbeitung

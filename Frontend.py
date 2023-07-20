@@ -1,19 +1,13 @@
 import time
 import streamlit as st
-#from st_aggrid import AgGrid
-#from st_aggrid.grid_options_builder import GridOptionsBuilder
 from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode, JsCode
 from st_aggrid.shared import GridUpdateMode
 import pandas as pd
-#import numpy as np
 from io import StringIO
 import Backend
-import random
 
 #-----------------------    Attribute  -----------------------
 df3 = pd.DataFrame()
-
-#fasttextModel = None
 
 if 'initialized' not in st.session_state:
     st.session_state.initialized = False
@@ -88,7 +82,6 @@ def selectionTable(dataToDisplay, key):
     #Creation of the selectable table; returns selectes values
     termeAuswahl = []
     gb = GridOptionsBuilder.from_dataframe(pd.DataFrame(dataToDisplay))
-    #gb = GridOptionsBuilder.from_dataframe(pd.DataFrame(st.session_state.QEDataframe[queryTerm]))
     gb.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc='sum', editable=False)
     gb.configure_selection(selection_mode="multiple", use_checkbox=True)  # Die Reihen auswählbar machen
     # gb.configure_pagination() #Buttons zum Seitenblättern unter der Tabelle
@@ -101,7 +94,6 @@ def selectionTable(dataToDisplay, key):
                   update_mode=GridUpdateMode.SELECTION_CHANGED)
     #Die ausgewählten Terme werden an die Auswahlliste angehangen
     for auswahl in data["selected_rows"]:
-        #termeAuswahl.append(auswahl[queryTerm])
         termeAuswahl.append(auswahl)
     return termeAuswahl
 
@@ -309,8 +301,6 @@ if st.session_state.initialized:
                            ("Document search", "Sentence search"))
 
 
-
-
     # enforce the restiction of maximum number of terms for the technology search
     # get the number of term with operator "+"
     disable_visualistion_button = False
@@ -361,110 +351,6 @@ if st.session_state.initialized:
                 st.table(df)
                 with st.expander("Details"):
                     overlap_results_dict[entry]["details"]
-
-
-            # style = df.style.hide_index()
-            # style.hide_columns()
-            # st.write(style.to_html(), unsafe_allow_html=True)
-
-            # data = {
-            #     "first column": [1],
-            #     "second column": [10]}
-            # df = pd.DataFrame(data)
-            # st.dataframe(df, use_container_width=True)
-            # with st.expander("asdsafd"):
-            #     "alsdfjölkdsaökjsadflöajsf"
-            #
-            # data = {
-            #     "first column": [1],
-            #     "second column": [10]}
-            # df = pd.DataFrame(data)
-            # st.dataframe(df, use_container_width=True)
-            # with st.expander("asdsafd"):
-            #     "alsdfjölkdsaökjsadflöajsf"
-            #
-            # data = {
-            #     "first column": [1],
-            #     "second column": [10]}
-            # df = pd.DataFrame(data)
-            # st.dataframe(df, use_container_width=True)
-            # with st.expander("asdsafd"):
-            #     "alsdfjölkdsaökjsadflöajsf"
-            #
-            # with st.expander("asdsafd"):
-            #     "alsdfjölkdsaökjsadflöajsf"
-
-            #example strings for testing
-            #caption_string = "Term1 | Term2 | Term3 | Term1 | Term2 | Term3 | Term1 | Term2 | Term3 | Number of Terms | Patents"
-            #results_string = "...J...|___N___|___N___|___N___|___N___|   N   |   N   |   N   |   N   |       14        |   1    "
-            #resultsDetails_String = ["Patent123123123, Anmelder, Link,...", "Patent123123123, Anmelder, Link,...", "Patent123123123, Anmelder, Link,..."]
-
-            # st.write(caption_string)
-            #
-            # i=0
-            # for element in body_string_list:
-            #     #st.write(element)
-            #     with st.expander(element):
-            #         st.write(details_dict_list[i])
-            #         #st.write(details_dict_list[i]["Link"])
-            #     i += 1
-
-
-
-        #with st.expander(results_string):
-        #    resultsDetails_String
-        #with st.expander(results_string):
-        #    resultsDetails_String
-        #with st.expander(results_string):
-        #    resultsDetails_String
-
-
-
-
-
-        # OLD CODE TO BE DELTED EVENTUALIY
-        # st.number_input("Anzahl an Top Patenten für die Ausgabe", min_value=1, value=10, key="anzahlTopPatenten")
-        #
-        # #Ausgabe der Resultate
-        # gb1 = GridOptionsBuilder.from_dataframe(pd.DataFrame(dfAusgabeDummy))
-        # gb1.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc='sum', editable=False)
-        # gb1.configure_pagination(enabled=True, paginationPageSize=10) #Buttons zum Seitenblättern unter der Tabelle
-        # gridOptions1 = gb1.build()
-        # AgGrid(pd.DataFrame(dfAusgabeDummy),
-        #               gridOptions=gridOptions1,
-        #               enable_enterprise_modules=True,
-        #               allow_unsafe_jscode=True,
-        #               update_mode=GridUpdateMode.SELECTION_CHANGED)
-        #
-        #
-        # st.table(cpcDummy)
-        #
-        # st.subheader("ANSÄTZE FÜR ZUSÄTZLICHE AUSGABEN")
-        # "- Score als Häufigkeitsverteilung + User-Eingabe zur Einstellung eines Cut-Off-Scores, bis zu dem die Ergebnisse ausgegeben werden. Deutlich größerer Datenverkeht zw. Frontend und Backend. Fraglich bis zu welchem Score die Resultate zurückgegeben werden. Es können sicher nicht jedes mal 150.000 Patente dargestellt werden. Ggf. muss eine Reduzierung auf z.B. jedes 10. Patent in der Score-Sortierten Liste durchgeführt werden."
-        # "- Statistische Auswertugn der Suchergebnisse, insbesondere der CPC-Klassen (Histogramm der Häufigkeit des Auftretens ab Cut-Off-Score). Wäre eine Zusatzfunktion im Backend "
-        #
-        # st.subheader("Ausgabe als Overlap-Suche")
-        # st.markdown("3 Terme enthalten")
-        # AgGrid(pd.DataFrame(dfAusgabeDummy),
-        #               gridOptions=gridOptions1,
-        #               #enable_enterprise_modules=True,
-        #               allow_unsafe_jscode=True,
-        #               update_mode=GridUpdateMode.SELECTION_CHANGED,
-        #               key=1  )
-        #
-        #
-        # st.markdown("2 Terme enthalten")
-        # AgGrid(pd.DataFrame(dfAusgabeDummy),
-        #               gridOptions=gridOptions1,
-        #               enable_enterprise_modules=True,
-        #               allow_unsafe_jscode=True,
-        #               update_mode=GridUpdateMode.SELECTION_CHANGED,
-        #               key=2  )
-
-
-
-
-
 
 if __name__ == "__main__":
     pass

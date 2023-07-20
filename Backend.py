@@ -1,31 +1,14 @@
 import config
 import itertools
-
-import numpy as np
 from nltk.corpus import wordnet as wn
 from jobimtextapi.jobimtext import JoBimText
 import gensim
 from gensim.models.fasttext import FastText
-import os
 import pandas as pd
 import pickle
 import utility_Index_und_Suche
 import re
 
-
-#-----------------------    CONFIG   -----------------------
-
-#-----------------------------------------------------------
-
-
-#-----------------------    Global   -----------------------
-#fastTextModel = {}
-
-#-----------------------------------------------------------
-
-def test():
-    print("Backend Test ausgeführt")
-    return("test")
 
 def dictPatentdaten_einlesen():
     file = open(config.pfadPatentWoerterbuch, 'rb')
@@ -42,12 +25,10 @@ def dictCPC_einlesen():
 
 
 def getCPC(_cpc):
-    return (config.CPCdict[_cpc])
+    return (CPCdict[_cpc])
 
 
 def serverstatus_abfragen(_esClient):
-    #Alle Modelle und Wörterbucher vorhanden und eingelesen
-
     if _esClient.ping == True:
         return True
     else:
@@ -61,7 +42,6 @@ def startFastText():
     if loaded_HPI_FastText != None:
         print("FastText Modell geladen")
     return loaded_HPI_FastText
-    #fastTextModel = gensim.models.fasttext.load_facebook_vectors(pfadFasttextModel)
 
 
 def startElasticsearchClient():
@@ -70,20 +50,12 @@ def startElasticsearchClient():
     return esClient
 
 
-
 def queryExpansion_Fastext(wort, fastTextModel, anzahl = 10):
     fasttext = fastTextModel.most_similar(positive=[wort], topn=anzahl)
     fasttext_switch =[]
     for i in fasttext:
         fasttext_switch.append([i[1], i[0]])
     return fasttext_switch
-
-    #return fastTextModel.most_similar(positive=[wort], topn=anzahl)
-
-
-
-
-    #Alternative: simular_by_key
 
 
 def queryExpansion_JoBim(wort, anzahl, pos_tag=None):
@@ -230,6 +202,7 @@ def getUnterbegriff_WordNet(wort, anzahl=1, pos_tag=None):
         anzahl = rueckgabe.__len__()
     return rueckgabe [:anzahl]
 
+
 def expandWord(word, termNumber,posTag=None, wordnet=True, jobimText=True, hpiFastText=True, fastextModel=None, return_rank=False):
     #Erweitert das übergeben Wort in den auf True übergeben QE-Modellen.
     #Anzahl der erweiterten Terme wird in alle Modelle übernommen
@@ -275,24 +248,15 @@ def expandWord(word, termNumber,posTag=None, wordnet=True, jobimText=True, hpiFa
         return liste[:termNumber]
 
 
-
 def queryString_to_dict(query_string):
-    """
-    Parses a search query string and returns a dictionary with each term
-    of the string connected with its search operators.
+#    Parses a search query string and returns a dictionary with each term
+#    of the string connected with its search operators.
 
-    Args:
-        query_string (str): The search query string.
-
-    Returns:
-        dict: A dictionary with each term of the string connected with its
-        search operators.
-    """
     query_dict = {}
 
     # Split the query string by whitespace and double quotes
     #term_list = re.findall(r'(?:".*?"|\S+)', query_string)
-    term_list = re.findall(r'(?:".*?"|\S+(?=\s|$))', query_string)
+    #term_list = re.findall(r'(?:".*?"|\S+(?=\s|$))', query_string)
     term_list = re.findall(r'(?:\+?"[^"]*"|\S+)', query_string)
     print(term_list)
 
@@ -321,10 +285,6 @@ def queryString_to_dict(query_string):
             term = term + term_list[i + 1]
             i += 1
 
-        # Remove double quotes from multi-word terms
-        #if term.startswith('"') and term.endswith('"'):
-        #    term = term[1:-1]
-
         # Remove the ~ form the term
         index = term.rfind("~")  # Finden des Indexes der letzten Tilde
         if index != -1:  # Wenn eine Tilde gefunden wurde
@@ -336,9 +296,6 @@ def queryString_to_dict(query_string):
         i += 1
 
     return query_dict
-
-
-
 
 
 def queryString_to_dict_old(query_string):
@@ -375,17 +332,9 @@ def queryString_to_dict_old(query_string):
 
 
 def dict_to_queryString(query_dict):
-    """
-    Generates a search query string from a dictionary with each term of
-    the string connected with its search operators.
+#    Generates a search query string from a dictionary with each term of
+#    the string connected with its search operators.
 
-    Args:
-        query_dict (dict): A dictionary with each term of the string
-        connected with its search operators.
-
-    Returns:
-        str: The search query string.
-    """
     query_list = []
 
     for term, values in query_dict.items():
@@ -541,18 +490,8 @@ def useCaseSearch(searchString, query_dict, search_type):
 
 
 def overlap_search(query_dict, search_type, results_to_display):
-    """
-    Carries out an overlap search using the query dictionary obtained from the
-    queryString_to_dict() function.
-
-    Args:
-        query_dict (dict): A dictionary with each term of the string connected with its search operators.
-        search_type (string): A String indicating whether to perform a document search or a sentence search.
-        results_to_display (int): number of detailed results to be returned
-
-    Returns:
-        results_dict (dictionary): a dictionary with an entry for all term combinations. Each entry consists of the search terms with its appearance and a list of details for the found patents.
-    """
+#    Carries out an overlap search using the query dictionary obtained from the
+#    queryString_to_dict() function.
 
     # Start of the ElasticSearch Client & Patent Dictionary
     esclient = startElasticsearchClient()
@@ -631,48 +570,6 @@ def overlap_search(query_dict, search_type, results_to_display):
                 "Number of Publications": publicationNumbers.__len__()
             }
 
-    ##### DEPRICATED #####
-    # create the CAPTION STRING, containing the names of the search terms, number of term and number of patents
-    # get the maximum charater length in all positive search terms
-    # max_character_number = 0
-    # for i in range(len(included_terms)):
-    #     if included_terms[i].startswith("+"):
-    #         included_terms[i] = included_terms[i][1:]
-    #     if included_terms[i].__len__() > max_character_number:
-    #         max_character_number = included_terms[i].__len__()
-    #     i += 1
-
-    # # generate the captpion term with the formating equaly. all field have the max. charater number. Division of the fields with "|"
-    # caption_terms = included_terms.copy()
-    # caption_terms.append("Terms")
-    # caption_terms.append("Patents")
-    # caption = "|"
-    # for term in caption_terms:
-    #     caption += term
-    #     if term.__len__() < max_character_number:
-    #         n = max_character_number - term.__len__()
-    #         caption += (n * ".")
-    #     caption += "|"
-
-    # #create the BODY STRING
-    # body_string_list = []
-    # sorted_results = sorted(results_dict.items(), key=lambda x: x[1]['Number of Terms'], reverse=True) #list of results, sorted by the number of term found
-    # for i in range(min(results_to_display, sorted_results.__len__())): #go though all sorted results until the end of required number is reached
-    #     temp_body = "|"
-    #     for term in included_terms: #add the "x" or ".", depending if the term is a found term for this search
-    #         if term in sorted_results[i][1]["Found Terms"]:
-    #             temp_body += max_character_number * "X"
-    #         else:
-    #             temp_body += max_character_number * "."
-    #         temp_body += "|"
-    #     #adding the fixed columns of "Number of Terms and "Number of Publication at the end
-    #     NumberOfTerms_string = str(sorted_results[i][1]["Number of Terms"])
-    #     temp_body += "|" + NumberOfTerms_string + (max_character_number - NumberOfTerms_string.__len__()) * "."
-    #     NumberOfPublications_string = str(sorted_results[i][1]["Number of Publications"])
-    #     temp_body += "|" + NumberOfPublications_string + (max_character_number - NumberOfPublications_string.__len__()) * "."
-    #     body_string_list.append(temp_body)
-    ##### ######## #####
-
     # create the list of included terms without search operators
     for i in range(len(included_terms)):
         if included_terms[i].startswith("+"):
@@ -737,27 +634,15 @@ def overlap_search(query_dict, search_type, results_to_display):
                 },
                 "details": details_dict_list[i]
                 }
-            i +=1
+            i += 1
 
     #return caption, body_string_list, details_dict_list
     return overlap_results_dict
 
-def erweiterteQueryAusfuehren(ErwQueryDict):
-    #Aufsplitten der Query
-    #Wenn Overlap-Suche == True, Suchanfrage für die Overlapping erzeugen
-    #Suche im jeweiligen Index ausführen
-    #Resulate zusammenführen (wenn mehrere Indexe abgefragt wurden)
-    #CPC-Klassen der TOP-Patente bestimmen und anhängen
-    #Alles als Dataframe zusammenfassen und an Frontend senden (incl. der Ursprünglichen Query, um das Synset im Frontend zu speichern
-    pass
-
-
-def startBackend():
-    CPCdict = dictCPC_einlesen()
-
-
 
 if __name__ == "__main__":
+    pass
+    #TESTEINGABEN
     #model = startFastText()
     #ab = expandWord("sensor", 10, None, True, True, False, None)
     #oberbegriff = getOberbegriff_WordNet("car", 1, None)
@@ -769,7 +654,7 @@ if __name__ == "__main__":
     #print(getUnterbegriff_WordNet("cab", 10))
     #print(queryExpansion_JoBim("brake",10,"VB"))
     #print((queryExpansion_JoBim("car",10,"NOUN")))
-    #fastTextModel = serverStarten()
+    #fastTextModel = startFastText()
     #print(queryExpansion_Fastext("car",fastTextModel ,5))
     # print(expandWord("car", 10, None, True, True, False))
     # print(expandWord("car", 1, None, True, True, False))
@@ -781,13 +666,11 @@ if __name__ == "__main__":
     # print(expandWord("jeep", 10, None, True, True, True, fastTextModel))
     # print(expandWord("asdf", 10, None, True, True, True, fastTextModel))
     # print(expandWord("asdf", 10, None, True, True, False))
-
-
     #print(splitQuery("brake#NOUN AND (tractor OR trailer) NOT car",False))
     #print(splitQuery("brake#NOUN AND (tractor OR trailer) (NOT car)"))
     #test = expandQuery("brake#NOUN AND (tractor OR trailer) NOT car",10,True,False, False)
 
-    esclient = startElasticsearchClient()
+    #esclient = startElasticsearchClient()
     #utility_Index_und_Suche.refresh(esclient, indexFulltext)
 
     #BEISPIEL FULLTEXT
@@ -809,14 +692,14 @@ if __name__ == "__main__":
     # }
 
     #BEISPIEL FULLTEXT MIT OPERATOREN UND PHRASE
-    query = {"query_string":{
-        #"query": "clean* OR separat* AND brush* AND “motion controlled”",
-        "query": "infusion",
-        "fields": config.listOfSearchfield
-        }
-    }
-    b= utility_Index_und_Suche.search(esclient, config.indexFulltext, query)
-    print (b[0]["_source"])
+    #query = {"query_string":{
+    #    #"query": "clean* OR separat* AND brush* AND “motion controlled”",
+    #    "query": "infusion",
+    #    "fields": config.listOfSearchfield
+    #    }
+    #}
+    #b= utility_Index_und_Suche.search(esclient, config.indexFulltext, query)
+    #print (b[0]["_source"])
 
 
     #BEISPIEL SUCHE INNERHALB EINES SATZES
@@ -848,19 +731,17 @@ if __name__ == "__main__":
 #    print(patentDict[treffer])
 #    print(patentDict[treffer]["title"])
 
-#    CPCdict = dictCPC_einlesen()
-#    getCPC("B01")
-
+    #CPCdict = dictCPC_einlesen()
+    #print(getCPC("B01"))
 
 #    useCaseSearch("the", queryString_to_dict("the"), "Document search")
     #useCaseSearch("( +image +picture +spectral +luminous +visual +optical +ocular) (-automotive) (-auto -automobile)", queryString_to_dict("( +image +picture +spectral +luminous +visual +optical +ocular) (-automotive) (-auto -automobile)"), "Document search")
     #useCaseSearch("the", queryString_to_dict("the"), "Sentence search")
     #testdict = queryString_to_dict('"fox quick"~5  brake "heavy vehicle" -test2 +tractor#noun -car -test')
     #testdict = queryString_to_dict('"zwei drei"~1 "vier fünf"~3 -car')
-    testdict = queryString_to_dict('protocol "key exchange"~5 brake#VERB "coefficient of friction"')
+    #testdict = queryString_to_dict('protocol "key exchange"~5 brake#VERB "coefficient of friction"')
     #testdict = queryString_to_dict("eins zwei drei -vier")
-    test_result = overlap_search(testdict, "Document search", 10)
-
+    #test_result = overlap_search(testdict, "Document search", 10)
 
     # Testdaten zur Dokumentatioan in der Arbeit
     #testdict = queryString_to_dict('protocol "key exchange"~5 brake#VERB "coefficient of friction" -automotive')
@@ -871,8 +752,3 @@ if __name__ == "__main__":
     #search_Type = "Document search"
     #results_to_display = 10
     #overlap_search(query_dict_refinded, search_Type, results_to_display)
-
-    asfd = queryString_to_dict('+"brake test" -super')
-    print(asfd)
-
-

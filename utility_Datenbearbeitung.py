@@ -1,12 +1,7 @@
-from datetime import datetime
 import json
 import os
 import pickle
-
-import utility_Index_und_Suche
-import utility_NLP_Bearbeitung
 import config
-
 
 
 def dateienEinlesen(_pfad):
@@ -21,7 +16,7 @@ def dateienEinlesen(_pfad):
 def leseJSONlines(dateienListe_):
     patentdatenObjekt_ = dict()
     anzahlDoubletten = 0
-    cpcLeerDict = {"code" : "unknown"}
+    cpcLeerDict = {"code": "unknown"}
     cpcLeereListe = [cpcLeerDict, cpcLeerDict]
 
     for datei_ in dateienListe_:
@@ -55,7 +50,7 @@ def zaehlenEinzigartigerPatente(dateienListe_):
         with open(os.path.join(config.pfadDateneingabe, datei_), 'r') as jsonDatei:
             for line in jsonDatei:
                 temp = json.loads(line)
-                print (temp["cpc"][0]['code'])
+                print(temp["cpc"][0]['code'])
                 if patentdatenObjekt_.__contains__(temp["publication_number"]):
                     anzahlDoubletten = anzahlDoubletten + 1
                     print(str(anzahlDoubletten) + " DOUBLETTE GEFUNDEN "  + temp["publication_number"])
@@ -109,122 +104,4 @@ def jsonDateienEinlesen(pfadDateneingabe):
 
 
 if __name__ == "__main__":
-    zeitpunktStart = datetime.now()
-    print('Ausführung als main')
-
-    print("\n", '########## Einlesen der Dateien ##########')
-    print("Pfad der Daten: " + str(config.pfadDateneingabe))
-    dateienListe = dateienEinlesen(config.pfadDateneingabe)
-    print("Einlesen der Dateie(n) " + str(dateienListe))
-    patentdatenDict = dict()
-    patentdatenDict = leseJSONlines(dateienListe)
-    print("Speicherung des Wörterbuchs im Pfad " + str(config.pfadDatenausgabe))
-    print(speichereObjekt(patentdatenDict,config.pfadDatenausgabe,config.bezeichnungWoerterbuch))
-
-
-    print("\n", '########## NLP Bearbeitugn und Indexierung ##########')
-    #Aufteilung der Dokumente für die Bearbeitung und Indexierung, zur Reduktion des benötigten Speichers
-    anzahlBloecke = int((patentdatenDict.__len__() - 1) / config.anzahlDokumenteInBlock) + 1
-    print("Daten werden aufgeteilt in Blöcke zu " + str(config.anzahlDokumenteInBlock) + " Datensätzen. Anzahl der Blöcke = " + str(anzahlBloecke))
-    dictListe = split_dictionary(patentdatenDict, config.anzahlDokumenteInBlock)
-
-
-    #Starten des Elasticsearch Servers und anlegen der Indexes
-    esClient = utility_Index_und_Suche.clientStarten(config.esPort)
-    utility_Index_und_Suche.indexLoeschen(esClient, config.esIndexText) #Löschen der alten Indexes zu Testzwecken
-    utility_Index_und_Suche.indexLoeschen(esClient, config.esIndexSaetze) #Löschen der alten Indexes zu Testzwecken
-    utility_Index_und_Suche.indexAnlegen(esClient, config.esIndexText)
-    utility_Index_und_Suche.indexAnlegen(esClient, config.esIndexSaetze)
-
-    esIndicesClient = utility_Index_und_Suche.indicesClientStarten(esClient)
-
-
-
-    resp = esIndicesClient.analyze(
-        body={
-            "tokenizer": "whitespace",
-            "filter": ["delimited_payload"],
-            "text": "the|0 brown|10 fox|5 is|0 quick|10",
-        }
-    )
     pass
-    for token in resp['tokens']:
-        print(token)
-
-
-
-    #NLP Bearbeitung und Indexierung in Blöcken
-    i=1
-    for patentdatenDict in dictListe:
-        print("Bearbeitung von Block " + str(i) + " von " + str(anzahlBloecke))
-        neuesDict = {}
-        neuesDict = utility_NLP_Bearbeitung.nlpPipelineDurchlaufen(patentdatenDict, "en_core_web_sm")
-
-        for key in neuesDict:
-            #Indexierung der einzelnen Felder jedes Patentes zusammen mit dem Feld der Patentnummer
-            docText = {
-                "publication_number": key,
-                "title": neuesDict[key]['title'],
-                "abstract": neuesDict[key]['abstract'],
-                "claims": neuesDict[key]['claims'],
-                "description": neuesDict[key]['description'],
-                "assignee": neuesDict[key]['assignee1']
-            }
-            utility_Index_und_Suche.dokumentIndexieren(esClient, config.esIndexText, docText)
-
-            #Ablage jedes Satzes, jedes Dokumentes in einem Indexeintrag zusammen mit dem Feld der Patentnummer
-            saetze = list(neuesDict[key]['NLP_doc'].sents)
-            for satz in saetze:
-                utility_Index_und_Suche.dokumentIndexieren(esClient,config.esIndexSaetze, {"publication_number": key, "satz": str(satz)})
-
-        del(neuesDict)
-        i+=1
-
-
-    #zaehlenEinzigartigerPatente(dateienListe)
-    #MOST_NLP_Bearbeitung.objektVisualisieren(patentdatenDict)
-
-    text1 = "super title1 Hallo Welt, nice to meet you. Ich beanspruche Weltherrschaft. Schreibtisch"
-    saetze1 = "..."
-    doc1 = {
-        'publicationDate': "20220101",
-        'title': "super title1",
-        'abstract': "Hallo Welt, nice to meet you.",
-        'claims': "Ich beanspruche Weltherrschaft",
-        'description': "Schreibtisch",
-        'cpc': "A1B2C3",
-        'assignee': "Hugo Hubertus",
-    }
-
-
-    doc2 = {
-        'publicationDate': "20220101",
-        'title': "super title2",
-        'abstract': "Hallo Welt, nice to meet you.",
-        'claims': "Ich beanspruche Weltherrschaft",
-        'description': "Selbsterklärend",
-        'cpc': "A1B2C3",
-        'assignee': "Hugo Hubertus",
-    }
-
-    utility_Index_und_Suche.dokumentIndexieren(esClient,config.esIndexText,doc1)
-    utility_Index_und_Suche.dokumentIndexieren(esClient, config.esIndexText, doc2)
-    utility_Index_und_Suche.refresh(esClient, config.esIndexText)
-    #print(MOST_elastic.getDocument(esIndex,esClient,"V0IblIQBXLfNnWU7TaQ0"))
-
-    query = {
-        "match": {
-            "description": "Schreibtisch"
-        }
-    }
-    # query = {
-    #     "match_all": {
-    #         "Schreibtisch"
-    #     }
-    # }
-
-    response=utility_Index_und_Suche.search(esClient,config.esIndexText,query)
-
-
-    zeitpunktEnde = datetime.now()
-    print("\n", "Dauer der Bearbeitung = ", zeitpunktEnde - zeitpunktStart)

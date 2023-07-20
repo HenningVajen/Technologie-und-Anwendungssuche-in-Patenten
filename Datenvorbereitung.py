@@ -1,7 +1,6 @@
 import config
 
 from datetime import datetime
-import os
 import spacy
 
 import utility_Datenbearbeitung
@@ -138,8 +137,6 @@ if __name__ == "__main__":
         else:
             dictListe = utility_Datenbearbeitung.split_dictionary(patentdatenDict, config.anzahlDokumenteInBlock)
             pool = multiprocessing.Pool()  # Erzeugen eines Prozesspools
-            #results = pool.map(index_dict_parts, dictListe)  # Parallele Ausführung
-            # Parallee Ausführung und Darstllung eines Statusbalkens
             results = []
             with tqdm(total=len(dictListe)) as progress_bar:
                 for result in pool.imap(index_dict_parts, dictListe):
@@ -187,51 +184,5 @@ if __name__ == "__main__":
         for token in resp['tokens']:
             print(token)
 
-    if modus == 4:
-        #zaehlenEinzigartigerPatente(dateienListe)
-        #NLP_Bearbeitung.objektVisualisieren(patentdatenDict)
-
-        text1 = "super title1 Hallo Welt, nice to meet you. Ich beanspruche Weltherrschaft. Schreibtisch"
-        saetze1 = "..."
-        doc1 = {
-            'publicationDate': "20220101",
-            'title': "super title1",
-            'abstract': "Hallo Welt, nice to meet you.",
-            'claims': "Ich beanspruche Weltherrschaft",
-            'description': "Schreibtisch",
-            'cpc': "A1B2C3",
-            'assignee': "Hugo Hubertus",
-        }
-
-
-        doc2 = {
-            'publicationDate': "20220101",
-            'title': "super title2",
-            'abstract': "Hallo Welt, nice to meet you.",
-            'claims': "Ich beanspruche Weltherrschaft",
-            'description': "Selbsterklärend",
-            'cpc': "A1B2C3",
-            'assignee': "Hugo Hubertus",
-        }
-
-        utility_Index_und_Suche.dokumentIndexieren(esClient,"indexfulltexttest",doc1)
-        utility_Index_und_Suche.dokumentIndexieren(esClient, "indexfulltexttest", doc2)
-        utility_Index_und_Suche.refresh(esClient, config.indexFulltext)
-        #print(elasticsearch.getDocument(esIndex,esClient,"V0IblIQBXLfNnWU7TaQ0"))
-
-        # query = {
-        #     "match": {
-        #         "description": "Schreibtisch"
-        #     }
-        # }
-
-        query = {
-            "match_all": "Schreibtisch"
-            }
-
-
-        response=utility_Index_und_Suche.search(esClient,config.indexFulltext,query)
-
     zeitpunktEnde = datetime.now()
     print("\n", "Dauer der Bearbeitung = ", zeitpunktEnde - zeitpunktStart)
-    #todo: OPTIMIERUNG: Visualisierung -  Einen Prograss-Bar z.B. mit tqdm einfügen

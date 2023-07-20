@@ -10,3 +10,4 @@ pandas==1.5.2
 numpy==1.24.0
 nltk~=3.8.1
 jobimtextapi~=1.0.1
+tqdm~=4.64.1

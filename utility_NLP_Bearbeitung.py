@@ -1,23 +1,6 @@
 import spacy
 from spacy import displacy
 
-#from dataclasses import dataclass
-#from typing import Any
-
-# @dataclass()
-# class patendatenKlasse:
-#     __slots__ = ['publication_number', 'publication_date', 'title', 'abstract', 'claims', 'description', 'cpc', 'assignee1', 'doc' ] #Optional, gibt die Struktur der Klasse vor. Reduziert den Speicherbedarf und die Zugriffzeit
-#     publication_number: str
-#     publication_date: int
-#     title: str
-#     abstract: str
-#     claims: str
-#     description: str
-#     cpc: str
-#     assignee1: str
-#     doc: Any
-
-
 
 def nlpPipelineDurchlaufen(_patentdatenObjekt, _spacyModel):
     nlp = spacy.load(_spacyModel)
@@ -62,7 +45,7 @@ def nlpPipelineDurchlaufen(_patentdatenObjekt, _spacyModel):
 
 def objektVisualisieren(patentdatenObjekt_):
     anzahlDokumente = 2
-    i=0
+    i = 0
 
     # Zugriff auf Wortart
     for publicationNumber in patentdatenObjekt_:
@@ -73,13 +56,12 @@ def objektVisualisieren(patentdatenObjekt_):
     for publicationNumber in patentdatenObjekt_:
         saetze = list(patentdatenObjekt_[publicationNumber]["NLP_doc"].sents)
         displacy.serve(saetze, style="dep", port=5001) #Der Portwechsel ist auf MacOS erforderlich, da Airplay den Standardport 5000 belegt
-        i=i+1
+        i = i + 1
         if (i == anzahlDokumente):
             break
 
 
 def posPayloadEinfuegen(text, lemma, nlp):
-    #nlp = spacy.load("en_core_web_sm")
     if len(text) >= 1000000: #enforce the max. character limit of spacy by cutting the string
         text = text[:999999]
     doc = nlp(text)
