@@ -47,7 +47,6 @@ spacyModel = "en_core_web_sm" #Legt das zu angewendete, vortrainierte Model fest
                 # Weitere Informationen https://spacy.io/models/
 bezeichnungWoerterbuch ="woerterbuch_metadaten_G01L_100.pkl" #Dateiname der Wörterbuchdatei (im Wörterbuch sind zu den Patennnummern weiter Felder mit Informationen zum Patent abgelegt
 multiprocess_indexing = True #Verwendung von Multithreading
-# ACHTUNG: Einzelne Werte müssen manuell in das Skript 'until_index_dict_parts.py' übernommen werden.
-save_Metadatafile = True #In Modus 2, a CVS-file with the Metadata is saved. Can be used to asses the indexed Dokument manually for a calculation of performance parameter
+save_Metadatafile = False #In Modus 2, a CVS-file with the Metadata is saved. Can be used to asses the indexed Dokument manually for a calculation of performance parameter
 name_Metadatafile = "metadata.csv"
 
