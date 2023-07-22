@@ -3,6 +3,10 @@ The "Technology and Application Search in Patents" is a tool designed to facilit
 
 ## Motivation
 The primary motivation behind developing this tool is to provide domain experts with a creativity technique for their research. Patent searches can be challenging, especially for inexperienced users, due to the specialized vocabulary and deliberate obfuscation techniques used in patent documents, which often hinder the retrieval of relevant and accurate results. This tool aims to simplify the process and improve the search experience for all users.
+To generate relevant synonyms three different models are used and the results are combined
+- FastText
+- WordNet
+- JoBimText
 
 ## Features
 ### Pre-Processing of Patent Data
@@ -17,41 +21,40 @@ The tool supports two different search approaches, each serving a distinct purpo
 
 
 ## Repository and overview
-
-**HIER WEITER SCHREIBEN**
-
 ```
 ├── Backend.py
-├── Datenvorbereitung.py (BESCHREIBUNG....)
-├── Frontend.py
-├── Import_CPCFiles.py
-├── config.py
-├── input
-├── model_data
+├── Datenvorbereitung.py <= add new documents to existing index or create new indices
+├── Frontend.py <=to be executed with Streamlit
+├── Import_CPCFiles.py <=needed only once to create a dictionary of CPC class descriptions
+├── config.py <=specify parameters like process flow though pre-processing, names of indices, folders and files
+├── input <=folder to place input date like .json with textual patent date; can be changed in config.py
+├── model_data <=folder to models and dictionaries; CPC-Dictionary, FastText Vector files, Patent-Metadata dictionary; can be changed in config.py
 │   └── CPCDict.pkl
-├── output
-│   ├── woerterbuch_metadaten_G01L.pkl
-│   ├── woerterbuch_metadaten_G01L_100.pkl
-│   └── woerterbuch_metadaten_random_full.pkl
+├── output <=output of the data pre-processing; created dictionary will be placed here; can be changed in config.py
 ├── requirements.txt
-├── until_index_dict_parts.py
+├── until_index_dict_parts.py <=this and following files contain functions to be called of other parts, esp. from the backend
 ├── utility_Datenbearbeitung.py
 ├── utility_Index_und_Suche.py
 ├── utility_NLP_Bearbeitung.py
 └── utility_Query.py
 ``` 
 
-
-## Installing / Using
+## Installing
 Install necessary python packages
 `python3 -m pip install -r requirements.txt`
 
-Copy the ressources in the corresponing folders stated in config.py
+Copy the resources in the corresponding folders stated in config.py-
+Necessary ressources in default configuration are
+- CPCDict.pkl (Dictionary of CPC Class descriptions)
+- patent-100.bin (Binary of the FastText Model)
+- woerterbuch_metadaten.pkl (Dictionary of metadata of all indexed patents)
+- Indexes on Elasticsearch Server
 
+See the following steps to create eventually missing resources.
 
 ### Download of textual patent data 
-
-Datenformat json lines, wie dem dem export aus "Google Patents Public Dataset" entspricht
+The input for the pre-processing are json-lines files as they can exported form the Google Patents Public Dataset.
+The files must contain the following fields:
 
 |Field Name |  Data Type  | Description |
  |---------- |  ---------- | ------------|
@@ -66,10 +69,54 @@ cpc |	RECORD |	The Cooperative Patent Classification (CPC) codes.
 
 ### Pre-Processing
 
+If not done, download and install Elasticsearch, see links section.
 
-### Search
+1. Start of Elasticsearch Server
+navigate to the installation folder and run the application, e.g.:
 
-## More ressources
-- Link zur Masterarbeit
-- Link zu Google Big Query "Google Patents Public Dataset"
-- Links zu Download-Qullen für Modell, die verwendet werden
+`/Library/elasticsearch-8.5.0/bin/elasticsearch`
+
+2. Settings and place files
+Check config.py for the correct name of indices to be used
+Check Datenvorbereitung for the run mode (lines 25 to 29)
+Place files in foldes, see section repository
+
+3. Run skript "Datenvorbereitung.py"
+`python3 Datenvorbereitung.py`
+
+## Using the tool / search
+1. Start of Elasticsearch Server
+navigate to the installation folder and run the application, e.g.:
+
+`/Library/elasticsearch-8.5.0/bin/elasticsearch`
+
+2. Optional: Check of used indices in Kibana
+navigate to the installation folder and run the application, e.g.:
+
+`/Library/kibana-8.5.0/bin/kibana `
+
+Run in browser
+http://localhost:5601
+
+Abfrage aller Indizes in Kibana Console
+GET /_cat/indices
+
+3. Start of Frontend
+`streamlit run Frontend.py`
+
+Run in browser
+http://localhost:8501
+
+
+## Links
+
+- Google Big Query "Google Patents Public Dataset"
+https://console.cloud.google.com/marketplace/product/google_patents_public_datasets/google-patents-public-data
+
+-Elasticsearch
+https://www.elastic.co/de/downloads/elasticsearch
+Version 8.5.0
+
+-Kibana
+https://www.elastic.co/de/downloads/kibana
+Version 8.5.0
