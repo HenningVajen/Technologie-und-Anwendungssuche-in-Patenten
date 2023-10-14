@@ -112,7 +112,9 @@ http://localhost:8501
 
 
 ## 6) Links
-
+- Master Thesis that contains the backgroud for this tool
+  https://digi-ing.de/wp-content/uploads/2023/10/2023-07-09a_Masterarbeit-Multiterm-Overlap-Suche-nach-Technologien-und-Applikationen-in-Patenten-Vajen.pdf
+  
 - Google Big Query "Google Patents Public Dataset"
   
 https://console.cloud.google.com/marketplace/product/google_patents_public_datasets/google-patents-public-data
